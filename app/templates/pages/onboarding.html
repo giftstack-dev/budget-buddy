@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+
+{% block title %}Setup Step {{ step }} of 5 — Budget Buddy{% endblock %}
+
+{% block content %}
+<div class="container-narrow fade-in">
+  <div class="card">
+    <div class="stat-label">Step {{ step }} of 5</div>
+    <progress value="{{ step }}" max="5" aria-label="Onboarding progress"></progress>
+
+    {% if errors %}
+      <div class="alert alert-danger mt-md" role="alert">
+        <ul>
+          {% for err in errors %}
+            <li>{{ err }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    {% if step == 1 %}
+      {% set f1 = form_step1 if form_step1 is defined else {} %}
+      <h1 class="mt-md">About you</h1>
+      <p class="subtitle mb-md">Tell us a little about your household so your plan matches real life.</p>
+
+      <form method="post" action="/onboarding/step/1">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="display_name">Display name</label>
+            <input type="text" id="display_name" name="display_name" required maxlength="100"
+                   value="{{ f1.get('display_name', profile.display_name) }}" />
+          </div>
+          <div class="form-group">
+            <label for="city">City or town</label>
+            <input type="text" id="city" name="city" maxlength="100"
+                   placeholder="For example: Lagos, Abuja, or Asaba"
+                   value="{{ f1.get('city', profile.city) }}" />
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="household_type">Household setup</label>
+            {% set sel_hh = f1.get('household_type', profile.household_type) %}
+            <select id="household_type" name="household_type">
+              {% for code, label in household_options %}
+                <option value="{{ code }}" {% if sel_hh == code %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="dependents_count">People you support financially</label>
+            <input type="number" id="dependents_count" name="dependents_count" min="0" max="30"
+                   value="{{ f1.get('dependents_count', profile.dependents_count) }}" />
+            <span class="field-hint">For example: 0 if just yourself, or 2 if supporting two family members.</span>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="housing_type">Housing</label>
+            {% set sel_ho = f1.get('housing_type', profile.housing_type) %}
+            <select id="housing_type" name="housing_type">
+              {% for code, label in housing_options %}
+                <option value="{{ code }}" {% if sel_ho == code %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="employment_type">How you earn</label>
+            {% set sel_emp = f1.get('employment_type', profile.employment_type) %}
+            <select id="employment_type" name="employment_type">
+              {% for code, label in employment_options %}
+                <option value="{{ code }}" {% if sel_emp == code %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <span class="field-hint">If you choose "Irregular business or freelance", version one plans using your average monthly income.</span>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block mt-md">Save &amp; continue</button>
+      </form>
+
+    {% elif step == 2 %}
+      {% set f2 = form_step2 if form_step2 is defined else {} %}
+      <h1 class="mt-md">What you earn</h1>
+      <p class="subtitle mb-md">Enter your take-home pay in Naira and when your next payday lands.</p>
+
+      {% if profile.employment_type == 'business_irregular' %}
+        <div class="alert alert-info">
+          Note: Version one plans using an average month for irregular business or freelance income.
+        </div>
+      {% endif %}
+
+      <form method="post" action="/onboarding/step/2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+        <h2>Main income</h2>
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="primary_label">Label</label>
+            <input type="text" id="primary_label" name="primary_label"
+                   value="{{ f2.get('primary_label', primary_income.label if primary_income else 'Monthly salary') }}" />
+          </div>
+          <div class="form-group">
+            <label for="primary_amount">Take-home amount (₦)</label>
+            <input type="text" id="primary_amount" name="primary_amount" required
+                   placeholder="For example: 250,000"
+                   value="{{ f2.get('primary_amount', kobo_to_input(primary_income.amount_kobo) if primary_income else '') }}" />
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="primary_frequency">How often are you paid?</label>
+            {% set sel_freq = f2.get('primary_frequency', primary_income.frequency if primary_income else 'monthly') %}
+            <select id="primary_frequency" name="primary_frequency">
+              <option value="monthly" {% if sel_freq == 'monthly' %}selected{% endif %}>Monthly</option>
+              <option value="weekly" {% if sel_freq == 'weekly' %}selected{% endif %}>Weekly</option>
+              <option value="biweekly" {% if sel_freq == 'biweekly' %}selected{% endif %}>Every 2 weeks</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="next_pay_date">Next payday</label>
+            <input type="date" id="next_pay_date" name="next_pay_date" required
+                   value="{{ f2.get('next_pay_date', primary_income.next_pay_date.isoformat() if primary_income else today.isoformat()) }}" />
+          </div>
+        </div>
+
+        <h2 class="mt-md">Other regular income (optional)</h2>
+        <div class="grid-3">
+          <div class="form-group">
+            <label for="extra_label">Label</label>
+            <input type="text" id="extra_label" name="extra_label"
+                   placeholder="For example: Weekend tutoring"
+                   value="{{ f2.get('extra_label', extra_income.label if extra_income else '') }}" />
+          </div>
+          <div class="form-group">
+            <label for="extra_amount">Amount (₦)</label>
+            <input type="text" id="extra_amount" name="extra_amount"
+                   placeholder="For example: 30,000"
+                   value="{{ f2.get('extra_amount', kobo_to_input(extra_income.amount_kobo) if extra_income else '') }}" />
+          </div>
+          <div class="form-group">
+            <label for="extra_frequency">Frequency</label>
+            {% set sel_efreq = f2.get('extra_frequency', extra_income.frequency if extra_income else 'monthly') %}
+            <select id="extra_frequency" name="extra_frequency">
+              <option value="monthly" {% if sel_efreq == 'monthly' %}selected{% endif %}>Monthly</option>
+              <option value="weekly" {% if sel_efreq == 'weekly' %}selected{% endif %}>Weekly</option>
+              <option value="biweekly" {% if sel_efreq == 'biweekly' %}selected{% endif %}>Every 2 weeks</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="actions-row mt-md">
+          <a class="btn btn-secondary" href="/onboarding?step=1">Back</a>
+          <button type="submit" class="btn btn-primary">Save &amp; continue</button>
+        </div>
+      </form>
+
+    {% elif step == 3 %}
+      <h1 class="mt-md">What you must pay</h1>
+      <p class="subtitle mb-md">
+        Enter your essential costs. Leave any row blank if it does not apply to you. Yearly rent and termly school fees are automatically split into monthly set-asides.
+      </p>
+
+      <form method="post" action="/onboarding/step/3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+        {% for row in cost_rows %}
+          <div class="cost-grid-row">
+            <div class="form-group mb-sm">
+              <label for="cost_category_{{ loop.index }}">Category</label>
+              <select id="cost_category_{{ loop.index }}" name="cost_category">
+                {% for cat in needs_categories %}
+                  <option value="{{ cat }}" {% if row.category == cat %}selected{% endif %}>{{ cat|category_label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group mb-sm">
+              <label for="cost_label_{{ loop.index }}">Item name</label>
+              <input type="text" id="cost_label_{{ loop.index }}" name="cost_label"
+                     placeholder="For example: House rent"
+                     value="{{ row.label }}" />
+            </div>
+            <div class="form-group mb-sm">
+              <label for="cost_amount_{{ loop.index }}">Amount (₦)</label>
+              <input type="text" id="cost_amount_{{ loop.index }}" name="cost_amount"
+                     placeholder="{{ row.example }}"
+                     value="{{ row.amount }}" />
+            </div>
+            <div class="form-group mb-sm">
+              <label for="cost_frequency_{{ loop.index }}">How often</label>
+              <select id="cost_frequency_{{ loop.index }}" name="cost_frequency">
+                <option value="monthly" {% if row.frequency == 'monthly' %}selected{% endif %}>Monthly</option>
+                <option value="yearly" {% if row.frequency == 'yearly' %}selected{% endif %}>Yearly</option>
+                <option value="termly" {% if row.frequency == 'termly' %}selected{% endif %}>Per school term</option>
+                <option value="weekly" {% if row.frequency == 'weekly' %}selected{% endif %}>Weekly</option>
+              </select>
+            </div>
+            <div class="form-group mb-sm">
+              <label for="cost_due_month_{{ loop.index }}">Due month</label>
+              <input type="number" id="cost_due_month_{{ loop.index }}" name="cost_due_month" min="1" max="12"
+                     placeholder="1-12"
+                     value="{{ row.due_month }}" />
+            </div>
+          </div>
+        {% endfor %}
+
+        <div class="actions-row mt-md">
+          <a class="btn btn-secondary" href="/onboarding?step=2">Back</a>
+          <button type="submit" name="action" value="add_rows" class="btn btn-secondary">Add 3 more rows</button>
+          <button type="submit" name="action" value="continue" class="btn btn-primary">Save &amp; continue</button>
+        </div>
+      </form>
+
+    {% elif step == 4 %}
+      <h1 class="mt-md">Safety net &amp; goals</h1>
+      <p class="subtitle mb-md">Set your emergency fund target and up to 3 personal savings goals.</p>
+
+      <form method="post" action="/onboarding/step/4">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="emergency_months">Emergency fund target (months of essentials)</label>
+            <input type="number" id="emergency_months" name="emergency_months" min="1" max="12"
+                   value="{{ profile.emergency_months }}" />
+            <span class="field-hint">For example: 3 months of essential bills.</span>
+          </div>
+          <div class="form-group">
+            <label for="emergency_savings">Emergency money already saved (₦)</label>
+            <input type="text" id="emergency_savings" name="emergency_savings"
+                   placeholder="For example: 100,000"
+                   value="{{ kobo_to_input(profile.emergency_savings_kobo) }}" />
+          </div>
+        </div>
+
+        <label class="checkbox-row mb-md">
+          <input type="checkbox" name="festive_fund_enabled" value="true" {% if profile.festive_fund_enabled %}checked{% endif %} />
+          <span>Set aside 3% each month for December &amp; festive expenses</span>
+        </label>
+
+        <h2>Your savings goals (up to 3, optional)</h2>
+        {% for idx in range(3) %}
+          {% set g = goals[idx] if idx < goals|length else none %}
+          <div class="card-muted">
+            <h3>Goal {{ idx + 1 }}</h3>
+            <div class="grid-2">
+              <div class="form-group">
+                <label for="goal_name_{{ idx }}">Goal name</label>
+                <input type="text" id="goal_name_{{ idx }}" name="goal_name"
+                       placeholder="For example: Work laptop"
+                       value="{{ g.name if g else '' }}" />
+              </div>
+              <div class="form-group">
+                <label for="goal_target_{{ idx }}">Target amount (₦)</label>
+                <input type="text" id="goal_target_{{ idx }}" name="goal_target"
+                       placeholder="For example: 350,000"
+                       value="{{ kobo_to_input(g.target_kobo) if g else '' }}" />
+              </div>
+              <div class="form-group">
+                <label for="goal_saved_{{ idx }}">Saved so far (₦)</label>
+                <input type="text" id="goal_saved_{{ idx }}" name="goal_saved"
+                       placeholder="For example: 50,000"
+                       value="{{ kobo_to_input(g.saved_kobo) if g else '' }}" />
+              </div>
+              <div class="form-group">
+                <label for="goal_deadline_{{ idx }}">Target date</label>
+                <input type="date" id="goal_deadline_{{ idx }}" name="goal_deadline"
+                       value="{{ g.deadline.isoformat() if g else '' }}" />
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+
+        <div class="actions-row mt-md">
+          <a class="btn btn-secondary" href="/onboarding?step=3">Back</a>
+          <button type="submit" class="btn btn-primary">Save &amp; continue</button>
+        </div>
+      </form>
+
+    {% else %}
+      <h1 class="mt-md">Choose how you want to use Budget Buddy</h1>
+      <p class="subtitle mb-md">You can switch between modes anytime in Settings.</p>
+
+      <form method="post" action="/onboarding/step/5">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+        <label class="radio-card">
+          <input type="radio" name="mode" value="planner" {% if profile.mode != 'log_only' %}checked{% endif %} />
+          <span>
+            <strong>Build my plan (Recommended)</strong><br />
+            <span class="text-muted">Full monthly plan with essentials, emergency fund, festive set-aside, goals, and category limits.</span>
+          </span>
+        </label>
+
+        <label class="radio-card">
+          <input type="radio" name="mode" value="log_only" {% if profile.mode == 'log_only' %}checked{% endif %} />
+          <span>
+            <strong>Just track my spending</strong><br />
+            <span class="text-muted">Subtract your bills and a fixed savings rate, then track daily spending against the rest.</span>
+          </span>
+        </label>
+
+        <div class="form-group mt-md">
+          <label for="savings_rate_pct">Savings rate (%) if using "Just track my spending"</label>
+          <input type="number" id="savings_rate_pct" name="savings_rate_pct" min="0" max="80"
+                 value="{{ profile.savings_rate_pct }}" />
+          <span class="field-hint">For example: 10 means 10% of your income is set aside before computing daily spending.</span>
+        </div>
+
+        <div class="actions-row mt-md">
+          <a class="btn btn-secondary" href="/onboarding?step=4">Back</a>
+          <button type="submit" class="btn btn-primary">Finish &amp; view my plan</button>
+        </div>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

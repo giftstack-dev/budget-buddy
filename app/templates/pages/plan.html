@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}Monthly Plan — Budget Buddy{% endblock %}
+
+{% block content %}
+<div class="container fade-in">
+  <div class="page-header">
+    <h1>Your monthly plan</h1>
+    <p class="subtitle">
+      Plan effective from {{ plan.effective_from.strftime('%d %b %Y') }} &bull;
+      Monthly income: <strong>{{ plan.income_monthly_kobo|format_naira }}</strong>
+    </p>
+  </div>
+
+  <section class="status-banner {% if plan.status == 'BALANCED' %}tone-balanced{% elif plan.status == 'TIGHT' %}tone-tight{% else %}tone-deficit{% endif %}">
+    <div class="status-icon" aria-hidden="true">
+      {% if plan.status == 'BALANCED' %}&#10003;{% elif plan.status == 'TIGHT' %}&#9888;{% else %}!{% endif %}
+    </div>
+    <div>
+      <h2>Status: {{ plan.status }}</h2>
+      <p class="mb-sm">{{ summary.get('status_message', '') }}</p>
+      {% if plan.status == 'DEFICIT' and summary.get('suggestions') %}
+        <p class="mb-sm"><strong>Where to start reviewing:</strong></p>
+        <ul>
+          {% for tip in summary.get('suggestions', []) %}
+            <li>{{ tip }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+  </section>
+
+  <div class="grid-2">
+    <section class="card">
+      <h2>What you must pay ({{ plan.needs_total_kobo|format_naira }})</h2>
+      {% if grouped.needs %}
+        {% for item in grouped.needs %}
+          <div class="list-row">
+            <div>
+              <div class="list-row-title">{{ item.category|category_label }}</div>
+              <div class="list-row-sub">{{ item.note }}</div>
+            </div>
+            <strong>{{ item.amount_kobo|format_naira }}</strong>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="text-muted">No essential bills added yet.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>What you save ({{ summary.get('savings_total_kobo', 0)|format_naira }})</h2>
+      {% if grouped.savings %}
+        {% for item in grouped.savings %}
+          <div class="list-row">
+            <div>
+              <div class="list-row-title">{{ item.category|category_label }}</div>
+              <div class="list-row-sub">{{ item.note }}</div>
+            </div>
+            <strong>{{ item.amount_kobo|format_naira }}</strong>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="text-muted">No savings allocation in this plan.</p>
+      {% endif %}
+
+      <h2 class="mt-md">Buffer ({{ summary.get('buffer_kobo', 0)|format_naira }})</h2>
+      {% if grouped.buffer %}
+        {% for item in grouped.buffer %}
+          <div class="list-row">
+            <div>
+              <div class="list-row-title">{{ item.category|category_label }}</div>
+              <div class="list-row-sub">{{ item.note }}</div>
+            </div>
+            <strong>{{ item.amount_kobo|format_naira }}</strong>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="text-muted">No buffer available this month.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>What you can spend ({{ summary.get('wants_total_kobo', 0)|format_naira }})</h2>
+    {% if grouped.wants %}
+      <div class="grid-2">
+        {% for item in grouped.wants %}
+          <div class="list-row">
+            <div>
+              <div class="list-row-title">{{ item.category|category_label }}</div>
+              <div class="list-row-sub">{{ item.note }}</div>
+            </div>
+            <strong>{{ item.amount_kobo|format_naira }}</strong>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-muted">All available income goes to needs right now.</p>
+    {% endif %}
+  </section>
+
+  {% set goals = summary.get('goal_results', []) %}
+  {% if goals %}
+    <section class="card">
+      <h2>Goal progress in this plan</h2>
+      <div class="grid-3">
+        {% for g in goals %}
+          <div class="card-muted mb-sm">
+            <h3>{{ g.name }}</h3>
+            <p class="mb-sm">
+              <span class="badge {% if g.on_track %}badge-success{% else %}badge-warning{% endif %}">
+                {% if g.on_track %}On track{% else %}Behind{% endif %}
+              </span>
+            </p>
+            <p class="mb-sm">Allocated: <strong>{{ g.allocated_kobo|format_naira }}/month</strong></p>
+            <p class="mb-sm text-muted">Needed: {{ g.monthly_needed_kobo|format_naira }}/month</p>
+            <p class="text-muted mb-sm">Target date: {{ g.deadline }}</p>
+            <p class="text-muted mb-sm">
+              Estimated completion:
+              {% if g.estimated_completion %}{{ g.estimated_completion }}{% else %}Needs room in budget{% endif %}
+            </p>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  <section class="card">
+    <h2>What if? (Try a scenario)</h2>
+    <p class="text-muted">Test changes safely — nothing is saved or changed in your real plan.</p>
+
+    {% if whatif_error %}
+      <div class="alert alert-danger" role="alert">{{ whatif_error }}</div>
+    {% endif %}
+
+    <form method="post" action="/plan/whatif">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="scenario">Scenario</label>
+          <select id="scenario" name="scenario">
+            <option value="income_drop" {% if selected_scenario == 'income_drop' %}selected{% endif %}>Income falls by X%</option>
+            <option value="rent_rise" {% if selected_scenario == 'rent_rise' %}selected{% endif %}>Rent rises by X%</option>
+            <option value="add_dependent" {% if selected_scenario == 'add_dependent' %}selected{% endif %}>Add a dependent (₦X/month)</option>
+            <option value="add_loan" {% if selected_scenario == 'add_loan' %}selected{% endif %}>Add a loan payment (₦X/month)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="value">Value (% or ₦ per month)</label>
+          <input type="text" id="value" name="value" required
+                 placeholder="For example: 20 for 20% or 25,000 for ₦25,000"
+                 value="{{ value_input }}" />
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">Compare before &amp; after</button>
+    </form>
+
+    {% if whatif_result %}
+      <div class="mt-md">
+        <h3>{{ whatif_result.description }}</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Group</th>
+                <th class="num">Current plan</th>
+                <th class="num">After scenario</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Status</td>
+                <td class="num"><strong>{{ whatif_result.before.status }}</strong></td>
+                <td class="num"><strong>{{ whatif_result.after.status }}</strong></td>
+              </tr>
+              <tr>
+                <td>Monthly income</td>
+                <td class="num">{{ whatif_result.before.income_monthly_kobo|format_naira }}</td>
+                <td class="num">{{ whatif_result.after.income_monthly_kobo|format_naira }}</td>
+              </tr>
+              <tr>
+                <td>What you must pay (Needs)</td>
+                <td class="num">{{ whatif_result.before.needs_total_kobo|format_naira }}</td>
+                <td class="num">{{ whatif_result.after.needs_total_kobo|format_naira }}</td>
+              </tr>
+              <tr>
+                <td>What you save (Savings)</td>
+                <td class="num">{{ whatif_result.before.savings_total_kobo|format_naira }}</td>
+                <td class="num">{{ whatif_result.after.savings_total_kobo|format_naira }}</td>
+              </tr>
+              <tr>
+                <td>What you can spend (Wants)</td>
+                <td class="num">{{ whatif_result.before.wants_total_kobo|format_naira }}</td>
+                <td class="num">{{ whatif_result.after.wants_total_kobo|format_naira }}</td>
+              </tr>
+              <tr>
+                <td>Buffer</td>
+                <td class="num">{{ whatif_result.before.buffer_kobo|format_naira }}</td>
+                <td class="num">{{ whatif_result.after.buffer_kobo|format_naira }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endif %}
+  </section>
+
+  {% include "partials/disclaimer.html" %}
+</div>
+{% endblock %}

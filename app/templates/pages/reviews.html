@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Reviews — Budget Buddy{% endblock %}
+
+{% block content %}
+<div class="container fade-in">
+  <div class="page-header">
+    <h1>Weekly &amp; pay-cycle reviews</h1>
+    <p class="subtitle">Calm, honest check-ins generated automatically at the end of every 7-day block and pay cycle.</p>
+  </div>
+
+  {% if reviews %}
+    {% for r in reviews %}
+      <details class="accordion" {% if loop.first %}open{% endif %}>
+        <summary>
+          <span>
+            <strong>{% if r.kind == 'monthly' %}Pay-cycle review{% else %}Weekly review{% endif %}</strong>:
+            {{ r.period_start.strftime('%d %b') }} – {{ r.period_end.strftime('%d %b %Y') }}
+          </span>
+          <span class="badge {% if r.status == 'on_track' %}badge-success{% elif r.status == 'close' %}badge-warning{% elif r.status == 'over' %}badge-danger{% else %}badge-neutral{% endif %}">
+            {{ r.status.replace('_', ' ')|title }}
+          </span>
+        </summary>
+        <div class="accordion-body">
+          <p>{{ r.message }}</p>
+
+          <div class="grid-3 mb-sm">
+            <div class="card-muted mb-sm">
+              <div class="stat-label">Spent</div>
+              <strong>{{ r.spent_kobo|format_naira }}</strong>
+            </div>
+            <div class="card-muted mb-sm">
+              <div class="stat-label">Allowance</div>
+              <strong>{{ r.allowance_kobo|format_naira }}</strong>
+            </div>
+            <div class="card-muted mb-sm">
+              <div class="stat-label">Ratio</div>
+              <strong>{{ "%.1f"|format(r.ratio_bp / 100) }}%</strong>
+            </div>
+          </div>
+
+          {% if r.kind == 'weekly' and r.details %}
+            <p class="text-muted">
+              Days logged: <strong>{{ r.details.get('days_logged', 0) }}</strong> &bull;
+              Days under daily allowance: <strong>{{ r.details.get('days_under_allowance', 0) }}</strong> &bull;
+              Streak at week end: <strong>{{ r.details.get('streak_days', 0) }} day(s)</strong> &bull;
+              4-week trend: <strong>{{ r.details.get('trend', 'steady')|title }}</strong>
+            </p>
+          {% elif r.kind == 'monthly' and r.details and r.details.get('comparisons') %}
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th class="num">Planned</th>
+                    <th class="num">Actual</th>
+                    <th class="num">Difference</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for c in r.details.get('comparisons', []) %}
+                    <tr>
+                      <td>{{ c.label }}</td>
+                      <td class="num">{{ c.planned_kobo|format_naira }}</td>
+                      <td class="num">{{ c.actual_kobo|format_naira }}</td>
+                      <td class="num {% if c.diff_kobo >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        {{ c.diff_kobo|format_naira }}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% endif %}
+        </div>
+      </details>
+    {% endfor %}
+  {% else %}
+    <div class="card">
+      <h2>No completed reviews yet</h2>
+      <p class="text-muted">
+        Reviews appear automatically once a 7-day block or pay cycle finishes. Keep logging your daily spending (or tapping "No spending today") on the <a href="/home">Home dashboard</a>.
+      </p>
+    </div>
+  {% endif %}
+
+  {% include "partials/disclaimer.html" %}
+</div>
+{% endblock %}

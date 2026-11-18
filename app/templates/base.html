@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Budget Buddy — Nigerian Personal Money Planner{% endblock %}</title>
+  <meta name="description" content="A calm, practical money planner and daily spending tracker for salary and wage earners in Nigeria." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="{% if user %}/home{% else %}/{% endif %}">
+        <span class="brand-mark" aria-hidden="true">₦</span>
+        <span>Budget Buddy</span>
+      </a>
+
+      <input type="checkbox" id="nav-toggle" class="nav-toggle-input" aria-label="Toggle navigation menu" />
+      <label for="nav-toggle" class="nav-toggle-label">Menu</label>
+
+      <nav class="nav-links" aria-label="Main navigation">
+        {% if user %}
+          <a class="nav-link {% if active_nav == 'home' %}is-active{% endif %}" href="/home">Home</a>
+          <a class="nav-link {% if active_nav == 'spending' %}is-active{% endif %}" href="/spending">Spending</a>
+          <a class="nav-link {% if active_nav == 'plan' %}is-active{% endif %}" href="/plan">Plan</a>
+          <a class="nav-link {% if active_nav == 'year' %}is-active{% endif %}" href="/year">Year</a>
+          <a class="nav-link {% if active_nav == 'reviews' %}is-active{% endif %}" href="/reviews">Reviews</a>
+          <a class="nav-link {% if active_nav == 'goals' %}is-active{% endif %}" href="/goals">Goals</a>
+          <a class="nav-link {% if active_nav == 'settings' %}is-active{% endif %}" href="/settings">Settings</a>
+          <form class="nav-logout-form" method="post" action="/logout">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+            <button type="submit" class="nav-logout-btn">Log out</button>
+          </form>
+        {% else %}
+          <a class="nav-link {% if active_nav == 'help' %}is-active{% endif %}" href="/help">Help</a>
+          <a class="nav-link {% if active_nav == 'privacy' %}is-active{% endif %}" href="/privacy">Privacy</a>
+          <a class="nav-link" href="/login">Log in</a>
+          <a class="btn btn-primary btn-sm" href="/register">Create account</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div>
+      <strong>Budget Buddy</strong> — Simple Nigerian Naira planning.
+    </div>
+    <div class="footer-links">
+      <a href="/help">Help</a>
+      <a href="/privacy">Privacy</a>
+      {% if user %}
+        <a href="/settings">Settings</a>
+      {% else %}
+        <a href="/login">Log in</a>
+      {% endif %}
+    </div>
+  </footer>
+
+  {% if user %}
+    <nav class="bottom-tabs" aria-label="Mobile quick tabs">
+      <a class="bottom-tab {% if active_nav == 'home' %}is-active{% endif %}" href="/home">
+        <span class="bottom-tab-icon" aria-hidden="true">&#8962;</span>
+        <span>Home</span>
+      </a>
+      <a class="bottom-tab {% if active_nav == 'spending' %}is-active{% endif %}" href="/home#add-spending">
+        <span class="bottom-tab-icon" aria-hidden="true">&#43;</span>
+        <span>Add spending</span>
+      </a>
+      <a class="bottom-tab {% if active_nav == 'plan' %}is-active{% endif %}" href="/plan">
+        <span class="bottom-tab-icon" aria-hidden="true">&#9776;</span>
+        <span>Plan</span>
+      </a>
+      <a class="bottom-tab {% if active_nav == 'reviews' %}is-active{% endif %}" href="/reviews">
+        <span class="bottom-tab-icon" aria-hidden="true">&#9733;</span>
+        <span>Reviews</span>
+      </a>
+      <label for="nav-toggle" class="bottom-tab">
+        <span class="bottom-tab-icon" aria-hidden="true">&#8943;</span>
+        <span>More</span>
+      </label>
+    </nav>
+  {% endif %}
+</body>
+</html>

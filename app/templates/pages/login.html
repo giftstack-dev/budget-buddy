@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Log in — Budget Buddy{% endblock %}
+
+{% block content %}
+<div class="container-narrow fade-in">
+  <div class="card">
+    <h1>Welcome back</h1>
+    <p class="subtitle mb-md">Log in with the email address or phone number you registered with.</p>
+
+    {% if error %}
+      <div class="alert alert-danger" role="alert">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/login">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+      <div class="form-group">
+        <label for="identifier">Email or phone number</label>
+        <input type="text" id="identifier" name="identifier" required
+               placeholder="you@example.com or 08031234567"
+               value="{{ identifier }}" />
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required />
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block">Log in</button>
+    </form>
+
+    <p class="mt-md text-muted">
+      New to Budget Buddy? <a href="/register">Create an account</a>.
+    </p>
+  </div>
+</div>
+{% endblock %}

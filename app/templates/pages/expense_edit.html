@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Spending Entry — Budget Buddy{% endblock %}
+
+{% block content %}
+<div class="container-narrow fade-in">
+  <div class="card">
+    <h1>Edit spending entry</h1>
+
+    {% if error %}
+      <div class="alert alert-danger" role="alert">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/spending/{{ expense.id }}/edit">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+      <div class="form-group">
+        <label for="amount">Amount (₦)</label>
+        <input type="text" id="amount" name="amount" value="{{ amount_display }}" />
+      </div>
+
+      <div class="form-group">
+        <label for="category">Category</label>
+        <select id="category" name="category">
+          {% for cat in variable_categories %}
+            <option value="{{ cat }}" {% if expense.category == cat %}selected{% endif %}>{{ cat|category_label }}</option>
+          {% endfor %}
+          <option value="no_spend" {% if expense.category == 'no_spend' %}selected{% endif %}>No spending today</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="spent_on">Date</label>
+        <input type="date" id="spent_on" name="spent_on" required value="{{ expense.spent_on.isoformat() }}" />
+      </div>
+
+      <div class="form-group">
+        <label for="note">Note</label>
+        <input type="text" id="note" name="note" maxlength="255" value="{{ expense.note }}" />
+      </div>
+
+      <div class="actions-row">
+        <a class="btn btn-secondary" href="/spending">Cancel</a>
+        <button type="submit" class="btn btn-primary">Save changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

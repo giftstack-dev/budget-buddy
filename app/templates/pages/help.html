@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Help &amp; FAQ — Budget Buddy{% endblock %}
+
+{% block content %}
+<div class="container-narrow fade-in">
+  <div class="page-header">
+    <h1>Help &amp; Frequently Asked Questions</h1>
+    <p class="subtitle">Plain answers to how Budget Buddy plans your Naira and gives weekly feedback.</p>
+  </div>
+
+  {% for question, answer in faqs %}
+    <details class="accordion">
+      <summary>{{ question }}</summary>
+      <div class="accordion-body">
+        <p>{{ answer }}</p>
+      </div>
+    </details>
+  {% endfor %}
+
+  {% include "partials/disclaimer.html" %}
+</div>
+{% endblock %}

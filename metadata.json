@@ -1,0 +1,6 @@
+{
+  "name": "Budget Buddy",
+  "description": "A personal money planner for salary and wage earners in Nigeria.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Privacy — Budget Buddy{% endblock %}
+
+{% block content %}
+<div class="container-narrow fade-in">
+  <div class="page-header">
+    <h1>Privacy &amp; Your Data</h1>
+    <p class="subtitle">Simple, transparent rules about what we store and what we never ask for.</p>
+  </div>
+
+  <div class="card">
+    <h2>What we store</h2>
+    <ul>
+      <li>Your sign-in email or phone number and an Argon2-hashed password.</li>
+      <li>Your household setup, income schedule, recurring bills, savings goals, daily spending entries, plans, and weekly/monthly reviews.</li>
+      <li>Temporary demo accounts created via "Try the demo" expire automatically after 24 hours.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>What we never collect or log</h2>
+    <ul>
+      <li>Never bank account numbers, debit or credit card numbers, BVN, or NIN.</li>
+      <li>Never third-party tracking ads or behavioural profiles.</li>
+      <li>Application logs never record your name, email, phone number, or Naira amounts.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>How to export or delete everything</h2>
+    <p>
+      When signed in, open <a href="/settings">Settings</a> to download all your data in CSV or JSON format at any time, or permanently delete your account and every associated record.
+    </p>
+  </div>
+</div>
+{% endblock %}

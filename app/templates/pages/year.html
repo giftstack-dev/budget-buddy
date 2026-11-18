@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}12-Month Year View — Budget Buddy{% endblock %}
+
+{% block content %}
+<div class="container fade-in">
+  <div class="page-header">
+    <h1>12-month year view</h1>
+    <p class="subtitle">
+      Watch your emergency fund grow, see yearly rent and termly school-fee sinking funds build up before due months, and track when goals finish.
+    </p>
+  </div>
+
+  <section class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th class="num">Income</th>
+            <th class="num">Needs</th>
+            <th class="num">Savings</th>
+            <th class="num">Sinking fund balance</th>
+            <th>Emergency fund progress</th>
+            <th>Due &amp; milestones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in months %}
+            <tr>
+              <td><strong>{{ m.month_label }}</strong></td>
+              <td class="num">{{ m.income_kobo|format_naira }}</td>
+              <td class="num">{{ m.needs_kobo|format_naira }}</td>
+              <td class="num">{{ m.savings_kobo|format_naira }}</td>
+              <td class="num">{{ m.sinking_fund_balance_kobo|format_naira }}</td>
+              <td>
+                <div>{{ m.emergency_balance_kobo|format_naira }} / {{ m.emergency_target_kobo|format_naira }}</div>
+                <progress value="{{ m.emergency_pct }}" max="100" aria-label="Emergency fund progress for {{ m.month_label }}"></progress>
+              </td>
+              <td>
+                {% for marker in m.due_markers %}
+                  <div><span class="badge badge-warning">{{ marker }}</span></div>
+                {% endfor %}
+                {% for gm in m.goal_milestones %}
+                  <div><span class="badge badge-success">{{ gm }}</span></div>
+                {% endfor %}
+                {% if not m.due_markers and not m.goal_milestones %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {% include "partials/disclaimer.html" %}
+</div>
+{% endblock %}

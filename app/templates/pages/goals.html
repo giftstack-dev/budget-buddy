@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Goals — Budget Buddy{% endblock %}
+
+{% block content %}
+<div class="container fade-in">
+  <div class="page-header">
+    <h1>Savings goals</h1>
+    <p class="subtitle">Track big purchases, tuition, or business targets alongside your monthly plan.</p>
+  </div>
+
+  {% if saved_notice %}
+    <div class="alert alert-success" role="status">{{ saved_notice }}</div>
+  {% endif %}
+  {% if error_notice %}
+    <div class="alert alert-danger" role="alert">{{ error_notice }}</div>
+  {% endif %}
+
+  <section class="card">
+    <h2>Add a new goal</h2>
+    <form method="post" action="/goals/add">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="goal_name">Goal name</label>
+          <input type="text" id="goal_name" name="name" required placeholder="For example: Solar inverter" />
+        </div>
+        <div class="form-group">
+          <label for="goal_target">Target amount (₦)</label>
+          <input type="text" id="goal_target" name="target" required placeholder="For example: 350,000" />
+        </div>
+        <div class="form-group">
+          <label for="goal_saved">Saved so far (₦)</label>
+          <input type="text" id="goal_saved" name="saved" placeholder="For example: 50,000" value="0" />
+        </div>
+        <div class="form-group">
+          <label for="goal_deadline">Target date</label>
+          <input type="date" id="goal_deadline" name="deadline" required />
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">Add goal &amp; update plan</button>
+    </form>
+  </section>
+
+  {% if goal_cards %}
+    <div class="grid-2">
+      {% for card in goal_cards %}
+        {% set g = card.goal %}
+        {% set res = card.result %}
+        <article class="card">
+          <div class="actions-row mb-sm">
+            <h2 class="mb-sm">{{ g.name }}</h2>
+            {% if res %}
+              <span class="badge {% if res.on_track %}badge-success{% else %}badge-warning{% endif %}">
+                {% if res.on_track %}On track{% else %}Behind{% endif %}
+              </span>
+            {% endif %}
+          </div>
+
+          <p class="mb-sm">
+            Saved <strong>{{ g.saved_kobo|format_naira }}</strong> of <strong>{{ g.target_kobo|format_naira }}</strong>
+          </p>
+          <progress value="{{ card.pct }}" max="100" aria-label="Progress towards {{ g.name }}"></progress>
+          <p class="stat-sub mb-md">
+            Deadline: {{ g.deadline.strftime('%d %b %Y') }}
+            {% if res %}
+              &bull; Monthly plan allocation: {{ res.allocated_kobo|format_naira }}
+              {% if res.estimated_completion %}
+                &bull; Est. ready: {{ res.estimated_completion.strftime('%b %Y') }}
+              {% endif %}
+            {% endif %}
+          </p>
+
+          <details class="accordion">
+            <summary>Edit or update saved amount</summary>
+            <div class="accordion-body">
+              <form method="post" action="/goals/{{ g.id }}/update">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                <div class="form-group">
+                  <label for="edit_name_{{ g.id }}">Name</label>
+                  <input type="text" id="edit_name_{{ g.id }}" name="name" required value="{{ g.name }}" />
+                </div>
+                <div class="form-group">
+                  <label for="edit_target_{{ g.id }}">Target (₦)</label>
+                  <input type="text" id="edit_target_{{ g.id }}" name="target" required value="{{ (g.target_kobo // 100) }}" />
+                </div>
+                <div class="form-group">
+                  <label for="edit_saved_{{ g.id }}">Saved so far (₦)</label>
+                  <input type="text" id="edit_saved_{{ g.id }}" name="saved" required value="{{ (g.saved_kobo // 100) }}" />
+                </div>
+                <div class="form-group">
+                  <label for="edit_deadline_{{ g.id }}">Deadline</label>
+                  <input type="date" id="edit_deadline_{{ g.id }}" name="deadline" required value="{{ g.deadline.isoformat() }}" />
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">Save changes</button>
+              </form>
+            </div>
+          </details>
+
+          <details class="confirm-delete">
+            <summary>Delete goal</summary>
+            <div class="confirm-box">
+              <form method="post" action="/goals/{{ g.id }}/delete">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                <button type="submit" class="btn btn-danger btn-sm">Confirm delete goal</button>
+              </form>
+            </div>
+          </details>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card">
+      <p class="text-muted">No goals added yet. Add one above to reserve monthly savings for it.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

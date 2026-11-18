@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}Home — Budget Buddy{% endblock %}
+
+{% block content %}
+<div class="container fade-in">
+  <div class="page-header">
+    <h1>{{ greeting }}, {{ profile.display_name if profile else 'Friend' }}</h1>
+    <p class="subtitle">
+      Cycle: {{ tracker.cycle.start.strftime('%d %b') }} – {{ tracker.cycle.end.strftime('%d %b %Y') }}
+      (Day {{ tracker.cycle.day_number }} of {{ tracker.cycle.length_days }})
+    </p>
+  </div>
+
+  {% if saved_notice %}
+    <div class="alert alert-success" role="status">{{ saved_notice }}</div>
+  {% endif %}
+  {% if error_notice %}
+    <div class="alert alert-danger" role="alert">{{ error_notice }}</div>
+  {% endif %}
+
+  <section class="status-banner tone-{{ cycle_status_tone }}">
+    <div class="status-icon" aria-hidden="true">
+      {% if cycle_status_tone == 'balanced' %}&#10003;{% elif cycle_status_tone == 'tight' %}&#9888;{% else %}!{% endif %}
+    </div>
+    <div>
+      <h2>{{ cycle_status_title }}</h2>
+      <p class="mb-sm">{{ cycle_status_sentence }}</p>
+      <a href="/plan">Open monthly plan &amp; breakdown</a>
+    </div>
+  </section>
+
+  <section class="grid-3">
+    <div class="card">
+      <div class="stat-label">Safe to spend today</div>
+      <div class="stat-value">{{ tracker.safe_to_spend_today_kobo|format_naira }}</div>
+      <progress value="{{ safe_ratio_pct }}" max="100" aria-label="Safe to spend today compared to daily allowance"></progress>
+      <p class="stat-sub">Daily baseline: {{ tracker.daily_allowance_kobo|format_naira }}/day</p>
+    </div>
+
+    <div class="card">
+      <div class="stat-label">Left this cycle</div>
+      <div class="stat-value">{{ tracker.remaining_pool_kobo|format_naira }}</div>
+      <progress value="{{ remaining_pct }}" max="100" aria-label="Remaining cycle spending pool"></progress>
+      <p class="stat-sub">Spent {{ tracker.spent_this_cycle_kobo|format_naira }} of {{ tracker.cycle_pool_kobo|format_naira }}</p>
+    </div>
+
+    <div class="card">
+      <div class="stat-label">Days to next payday</div>
+      <div class="stat-value">{{ tracker.days_to_next_payday }} day(s)</div>
+      <progress value="{{ days_elapsed_pct }}" max="100" aria-label="Pay cycle progress"></progress>
+      <p class="stat-sub">Next payday: {{ tracker.cycle.next_pay_date.strftime('%d %b %Y') }}</p>
+    </div>
+  </section>
+
+  <div class="grid-2">
+    <section class="card" id="add-spending">
+      <h2>Add spending</h2>
+      <p class="text-muted">Log what you spent today so your daily allowance stays accurate.</p>
+
+      <form method="post" action="/spending/add">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+        <input type="hidden" name="next_url" value="/home" />
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="amount">Amount (₦)</label>
+            <input type="text" id="amount" name="amount" required placeholder="For example: 2,500" />
+          </div>
+          <div class="form-group">
+            <label for="category">Category</label>
+            <select id="category" name="category">
+              {% for cat in variable_categories %}
+                <option value="{{ cat }}">{{ cat|category_label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="spent_on">Date</label>
+            <input type="date" id="spent_on" name="spent_on" required value="{{ today.isoformat() }}" />
+          </div>
+          <div class="form-group">
+            <label for="note">Note (optional)</label>
+            <input type="text" id="note" name="note" maxlength="255" placeholder="For example: Rice and bus fare" />
+          </div>
+        </div>
+
+        <button type="submit" name="action" value="add" class="btn btn-primary btn-block">Save spending</button>
+      </form>
+
+      <form method="post" action="/spending/add" class="mt-sm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+        <input type="hidden" name="next_url" value="/home" />
+        <input type="hidden" name="spent_on" value="{{ today.isoformat() }}" />
+        <input type="hidden" name="category" value="no_spend" />
+        <button type="submit" name="action" value="no_spend" class="btn btn-secondary btn-block">No spending today</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Today's entries</h2>
+      {% if today_entries %}
+        {% for entry in today_entries %}
+          <div class="list-row">
+            <div>
+              <div class="list-row-title">{{ entry.category|category_label }}</div>
+              {% if entry.note %}
+                <div class="list-row-sub">{{ entry.note }}</div>
+              {% endif %}
+            </div>
+            <div class="actions-row">
+              <strong>{{ entry.amount_kobo|format_naira }}</strong>
+              <a class="btn btn-secondary btn-sm" href="/spending/{{ entry.id }}/edit">Edit</a>
+              <details class="confirm-delete">
+                <summary>Delete</summary>
+                <div class="confirm-box">
+                  <form method="post" action="/spending/{{ entry.id }}/delete">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+                    <input type="hidden" name="next_url" value="/home" />
+                    <button type="submit" class="btn btn-danger btn-sm">Confirm delete</button>
+                  </form>
+                </div>
+              </details>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="text-muted">Nothing logged for today yet. Add an entry or tap "No spending today".</p>
+      {% endif %}
+      <p class="mt-md mb-sm"><a href="/spending">View full spending log &amp; export CSV</a></p>
+    </section>
+  </div>
+
+  <div class="grid-3">
+    <section class="card">
+      <h2>Coming up</h2>
+      {% for ev in upcoming %}
+        <div class="list-row">
+          <div>
+            <div class="list-row-title">{{ ev.title }}</div>
+            <div class="list-row-sub">{{ ev.when }}</div>
+          </div>
+          <span class="text-muted">{{ ev.detail }}</span>
+        </div>
+      {% endfor %}
+    </section>
+
+    <section class="card">
+      <h2>Latest review</h2>
+      {% if latest_review %}
+        <p class="mb-sm">
+          <span class="badge {% if latest_review.status == 'on_track' %}badge-success{% elif latest_review.status == 'close' %}badge-warning{% elif latest_review.status == 'over' %}badge-danger{% else %}badge-neutral{% endif %}">
+            {{ latest_review.status.replace('_', ' ')|title }}
+          </span>
+          <span class="text-muted">{{ latest_review.period_start.strftime('%d %b') }} – {{ latest_review.period_end.strftime('%d %b') }}</span>
+        </p>
+        <p>{{ latest_review.message }}</p>
+        <a href="/reviews">See all reviews</a>
+      {% else %}
+        <p class="text-muted">Your first weekly review will appear here once your first 7-day block finishes.</p>
+        <a href="/reviews">Open reviews</a>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <div class="stat-label">General tip of the week</div>
+      <h2>{{ tip.title }}</h2>
+      <p>{{ tip.body }}</p>
+      <p class="stat-sub">{{ tip.disclaimer }}</p>
+    </section>
+  </div>
+</div>
+{% endblock %}

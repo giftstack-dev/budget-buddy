@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Budget Buddy — Plan Your Naira Before You Spend{% endblock %}
+
+{% block content %}
+<div class="container fade-in">
+  <section class="hero">
+    <span class="hero-eyebrow">Built for Nigeria &bull; Naira-first</span>
+    <h1>Know what you must pay, what you can save, and what is safe to spend each day.</h1>
+    <p class="subtitle">
+      A calm personal money planner for salary and wage earners in Nigeria — with yearly rent and school-fee planning, daily spending logs, and kind weekly reviews.
+    </p>
+    <div class="actions-row mt-md">
+      <a class="btn btn-primary" href="/register">Create account</a>
+      {% if demo_enabled %}
+        <form method="post" action="/demo">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+          <button type="submit" class="btn btn-accent">Try the demo</button>
+        </form>
+      {% endif %}
+      <a class="btn btn-secondary" href="/login">Log in</a>
+    </div>
+  </section>
+
+  <section class="grid-3">
+    <article class="card">
+      <div class="step-badge">1</div>
+      <h2>Answer a few clear questions</h2>
+      <p class="text-muted">Enter what you earn, your payday, and recurring costs like rent, food, transport, data, and termly school fees.</p>
+    </article>
+    <article class="card">
+      <div class="step-badge">2</div>
+      <h2>Get your monthly &amp; yearly plan</h2>
+      <p class="text-muted">We cover essentials first, set aside money for annual rent and emergencies, protect your goals, and show your daily allowance.</p>
+    </article>
+    <article class="card">
+      <div class="step-badge">3</div>
+      <h2>Log daily &amp; read kind reviews</h2>
+      <p class="text-muted">Log spending in seconds — or tap "No spending today" — and get practical, non-judgmental feedback every week.</p>
+    </article>
+  </section>
+
+  <section class="card-muted">
+    <h2>Your privacy comes first</h2>
+    <p class="mb-sm">
+      Budget Buddy never connects to your bank and never asks for bank account numbers, debit cards, BVN, or NIN. You can export or delete all your data whenever you want.
+    </p>
+    <a href="/privacy">Read our privacy promise</a>
+  </section>
+</div>
+{% endblock %}

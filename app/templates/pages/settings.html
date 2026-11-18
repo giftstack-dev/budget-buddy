@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+
+{% block title %}Settings — Budget Buddy{% endblock %}
+
+{% block content %}
+<div class="container fade-in">
+  <div class="page-header">
+    <h1>Settings</h1>
+    <p class="subtitle">Update your household profile, income, costs, preferences, or export your data. Every budget edit creates a fresh plan version from today.</p>
+  </div>
+
+  {% if saved_notice %}
+    <div class="alert alert-success" role="status">{{ saved_notice }}</div>
+  {% endif %}
+  {% if error_notice %}
+    <div class="alert alert-danger" role="alert">{{ error_notice }}</div>
+  {% endif %}
+
+  <div class="grid-2">
+    <section class="card">
+      <h2>Profile &amp; planning mode</h2>
+      <form method="post" action="/settings/profile">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+        <div class="form-group">
+          <label for="display_name">Display name</label>
+          <input type="text" id="display_name" name="display_name" required value="{{ profile.display_name }}" />
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="city">City</label>
+            <input type="text" id="city" name="city" value="{{ profile.city }}" />
+          </div>
+          <div class="form-group">
+            <label for="dependents_count">Dependents</label>
+            <input type="number" id="dependents_count" name="dependents_count" min="0" max="30" value="{{ profile.dependents_count }}" />
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="household_type">Household</label>
+            <select id="household_type" name="household_type">
+              {% for code, label in household_options %}
+                <option value="{{ code }}" {% if profile.household_type == code %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="housing_type">Housing</label>
+            <select id="housing_type" name="housing_type">
+              {% for code, label in housing_options %}
+                <option value="{{ code }}" {% if profile.housing_type == code %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="employment_type">Employment</label>
+            <select id="employment_type" name="employment_type">
+              {% for code, label in employment_options %}
+                <option value="{{ code }}" {% if profile.employment_type == code %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="mode">Planning mode</label>
+            <select id="mode" name="mode">
+              <option value="planner" {% if profile.mode == 'planner' %}selected{% endif %}>Build my plan (planner)</option>
+              <option value="log_only" {% if profile.mode == 'log_only' %}selected{% endif %}>Just track my spending (log_only)</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid-3">
+          <div class="form-group">
+            <label for="emergency_months">Emergency months</label>
+            <input type="number" id="emergency_months" name="emergency_months" min="1" max="12" value="{{ profile.emergency_months }}" />
+          </div>
+          <div class="form-group">
+            <label for="emergency_savings">Emergency saved (₦)</label>
+            <input type="text" id="emergency_savings" name="emergency_savings" value="{{ kobo_str(profile.emergency_savings_kobo) }}" />
+          </div>
+          <div class="form-group">
+            <label for="savings_rate_pct">Track-only savings (%)</label>
+            <input type="number" id="savings_rate_pct" name="savings_rate_pct" min="0" max="80" value="{{ profile.savings_rate_pct }}" />
+          </div>
+        </div>
+        <label class="checkbox-row mb-md">
+          <input type="checkbox" name="festive_fund_enabled" value="true" {% if profile.festive_fund_enabled %}checked{% endif %} />
+          <span>Enable 3% monthly festive fund</span>
+        </label>
+        <button type="submit" class="btn btn-primary">Save profile</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Wants split weights</h2>
+      <p class="text-muted">Adjust how your leftover wants allowance is divided across categories.</p>
+      <form method="post" action="/settings/wants">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="w_eating">Eating out</label>
+            <input type="number" id="w_eating" name="eating_out" min="0" value="{{ wants_weights.get('eating_out', 30) }}" />
+          </div>
+          <div class="form-group">
+            <label for="w_ent">Entertainment</label>
+            <input type="number" id="w_ent" name="entertainment" min="0" value="{{ wants_weights.get('entertainment', 20) }}" />
+          </div>
+          <div class="form-group">
+            <label for="w_pc">Personal care</label>
+            <input type="number" id="w_pc" name="personal_care" min="0" value="{{ wants_weights.get('personal_care', 20) }}" />
+          </div>
+          <div class="form-group">
+            <label for="w_cloth">Clothing &amp; shopping</label>
+            <input type="number" id="w_cloth" name="clothing_shopping" min="0" value="{{ wants_weights.get('clothing_shopping', 20) }}" />
+          </div>
+          <div class="form-group">
+            <label for="w_gifts">Gifts</label>
+            <input type="number" id="w_gifts" name="gifts" min="0" value="{{ wants_weights.get('gifts', 10) }}" />
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Save wants weights</button>
+      </form>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Income sources</h2>
+    <form method="post" action="/settings/income">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+      {% for inc in incomes %}
+        <div class="cost-grid-row">
+          <div class="form-group mb-sm">
+            <label for="inc_lbl_{{ loop.index }}">Label</label>
+            <input type="text" id="inc_lbl_{{ loop.index }}" name="inc_label" value="{{ inc.label }}" />
+          </div>
+          <div class="form-group mb-sm">
+            <label for="inc_amt_{{ loop.index }}">Amount (₦)</label>
+            <input type="text" id="inc_amt_{{ loop.index }}" name="inc_amount" value="{{ kobo_str(inc.amount_kobo) }}" />
+          </div>
+          <div class="form-group mb-sm">
+            <label for="inc_freq_{{ loop.index }}">Frequency</label>
+            <select id="inc_freq_{{ loop.index }}" name="inc_frequency">
+              <option value="monthly" {% if inc.frequency == 'monthly' %}selected{% endif %}>Monthly</option>
+              <option value="weekly" {% if inc.frequency == 'weekly' %}selected{% endif %}>Weekly</option>
+              <option value="biweekly" {% if inc.frequency == 'biweekly' %}selected{% endif %}>Every 2 weeks</option>
+            </select>
+          </div>
+          <div class="form-group mb-sm">
+            <label for="inc_date_{{ loop.index }}">Next payday</label>
+            <input type="date" id="inc_date_{{ loop.index }}" name="inc_next_pay_date" value="{{ inc.next_pay_date.isoformat() }}" />
+          </div>
+        </div>
+      {% endfor %}
+      <div class="cost-grid-row">
+        <div class="form-group mb-sm">
+          <label for="inc_lbl_new">Add another income (optional)</label>
+          <input type="text" id="inc_lbl_new" name="inc_label" placeholder="For example: Side hustle" />
+        </div>
+        <div class="form-group mb-sm">
+          <label for="inc_amt_new">Amount (₦)</label>
+          <input type="text" id="inc_amt_new" name="inc_amount" placeholder="Leave blank if none" />
+        </div>
+        <div class="form-group mb-sm">
+          <label for="inc_freq_new">Frequency</label>
+          <select id="inc_freq_new" name="inc_frequency">
+            <option value="monthly">Monthly</option>
+            <option value="weekly">Weekly</option>
+            <option value="biweekly">Every 2 weeks</option>
+          </select>
+        </div>
+        <div class="form-group mb-sm">
+          <label for="inc_date_new">Next payday</label>
+          <input type="date" id="inc_date_new" name="inc_next_pay_date" value="{{ today.isoformat() }}" />
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary mt-sm">Save income changes</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Essential costs</h2>
+    <p class="text-muted">Clear an amount to remove a cost row, or fill the extra row to add a new bill.</p>
+    <form method="post" action="/settings/costs">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+      {% for cost in costs %}
+        <div class="cost-grid-row">
+          <div class="form-group mb-sm">
+            <label for="sc_cat_{{ loop.index }}">Category</label>
+            <select id="sc_cat_{{ loop.index }}" name="cost_category">
+              {% for cat in needs_categories %}
+                <option value="{{ cat }}" {% if cost.category == cat %}selected{% endif %}>{{ cat|category_label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group mb-sm">
+            <label for="sc_lbl_{{ loop.index }}">Label</label>
+            <input type="text" id="sc_lbl_{{ loop.index }}" name="cost_label" value="{{ cost.label }}" />
+          </div>
+          <div class="form-group mb-sm">
+            <label for="sc_amt_{{ loop.index }}">Amount (₦)</label>
+            <input type="text" id="sc_amt_{{ loop.index }}" name="cost_amount" value="{{ kobo_str(cost.amount_kobo) }}" />
+          </div>
+          <div class="form-group mb-sm">
+            <label for="sc_freq_{{ loop.index }}">Frequency</label>
+            <select id="sc_freq_{{ loop.index }}" name="cost_frequency">
+              <option value="monthly" {% if cost.frequency == 'monthly' %}selected{% endif %}>Monthly</option>
+              <option value="yearly" {% if cost.frequency == 'yearly' %}selected{% endif %}>Yearly</option>
+              <option value="termly" {% if cost.frequency == 'termly' %}selected{% endif %}>Per school term</option>
+              <option value="weekly" {% if cost.frequency == 'weekly' %}selected{% endif %}>Weekly</option>
+            </select>
+          </div>
+          <div class="form-group mb-sm">
+            <label for="sc_due_{{ loop.index }}">Due month</label>
+            <input type="number" id="sc_due_{{ loop.index }}" name="cost_due_month" min="1" max="12" value="{{ cost.due_month or '' }}" />
+          </div>
+        </div>
+      {% endfor %}
+      <div class="cost-grid-row">
+        <div class="form-group mb-sm">
+          <label for="sc_cat_new">Add cost category</label>
+          <select id="sc_cat_new" name="cost_category">
+            {% for cat in needs_categories %}
+              <option value="{{ cat }}">{{ cat|category_label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group mb-sm">
+          <label for="sc_lbl_new">Label</label>
+          <input type="text" id="sc_lbl_new" name="cost_label" placeholder="For example: Generator fuel" />
+        </div>
+        <div class="form-group mb-sm">
+          <label for="sc_amt_new">Amount (₦)</label>
+          <input type="text" id="sc_amt_new" name="cost_amount" placeholder="Leave blank if none" />
+        </div>
+        <div class="form-group mb-sm">
+          <label for="sc_freq_new">Frequency</label>
+          <select id="sc_freq_new" name="cost_frequency">
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+            <option value="termly">Per school term</option>
+            <option value="weekly">Weekly</option>
+          </select>
+        </div>
+        <div class="form-group mb-sm">
+          <label for="sc_due_new">Due month</label>
+          <input type="number" id="sc_due_new" name="cost_due_month" min="1" max="12" placeholder="1-12" />
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary mt-sm">Save cost changes</button>
+    </form>
+  </section>
+
+  <div class="grid-2">
+    <section class="card">
+      <h2>Change password</h2>
+      <form method="post" action="/settings/password">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+        <div class="form-group">
+          <label for="current_password">Current password</label>
+          <input type="password" id="current_password" name="current_password" required />
+        </div>
+        <div class="form-group">
+          <label for="new_password">New password (min 8 characters)</label>
+          <input type="password" id="new_password" name="new_password" required minlength="8" />
+        </div>
+        <div class="form-group">
+          <label for="confirm_password">Confirm new password</label>
+          <input type="password" id="confirm_password" name="confirm_password" required minlength="8" />
+        </div>
+        <button type="submit" class="btn btn-secondary">Update password</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Export &amp; account deletion</h2>
+      <p class="text-muted">Download a copy of your data anytime.</p>
+      <div class="actions-row mb-md">
+        <a class="btn btn-secondary" href="/settings/export.csv">Export my data (CSV)</a>
+        <a class="btn btn-secondary" href="/settings/export.json">Export my data (JSON)</a>
+      </div>
+
+      <details class="confirm-delete">
+        <summary>Delete my account and data</summary>
+        <div class="confirm-box">
+          <p class="mb-sm">This permanently erases your account, plans, spending history, goals, and reviews. Type <strong>DELETE</strong> below to confirm.</p>
+          <form method="post" action="/settings/delete-account">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+            <div class="form-group">
+              <label for="confirm_text">Type DELETE</label>
+              <input type="text" id="confirm_text" name="confirm_text" required placeholder="DELETE" />
+            </div>
+            <button type="submit" class="btn btn-danger">Permanently delete my account</button>
+          </form>
+        </div>
+      </details>
+    </section>
+  </div>
+</div>
+{% endblock %}
