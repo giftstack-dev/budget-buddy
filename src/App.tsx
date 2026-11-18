@@ -12,9 +12,11 @@ import {
   SavingsPage,
   YearPage,
 } from './components/AppPages';
+import {Icon, SvgSprite} from './components/Icons';
 import {Navbar} from './components/Navbar';
 import {OnboardingWizard} from './components/OnboardingWizard';
 import {LandingPage, LoginPage, RegisterPage} from './components/PublicPages';
+import {QuickAddExpense} from './components/QuickAddExpense';
 import {createDemoVisitorUser} from './demo';
 import {todayLagosISO} from './engine';
 import {
@@ -71,8 +73,10 @@ export default function App() {
     return storedUsers.find((u) => u.id === savedId) ?? null;
   });
   const [route, setRoute] = useState<RoutePath>(() => parseRouteFromLocation());
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
 
   const effectiveRoute = resolveAllowedRoute(route, activeUser);
+  const isFullySignedIn = Boolean(activeUser && activeUser.onboardingDone);
 
   useEffect(() => {
     if (window.location.pathname !== effectiveRoute) {
@@ -218,6 +222,7 @@ export default function App() {
   }
 
   function handleLogout() {
+    setQuickAddOpen(false);
     setActiveUser(null);
     saveActiveUserId(null);
     window.history.pushState(null, '', '/');
@@ -278,15 +283,18 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F7F4] text-[#12201B]">
+    <div className="min-h-screen text-[#12201B]">
+      <SvgSprite />
+
       <Navbar
         user={activeUser}
         currentRoute={effectiveRoute}
         onNavigate={navigate}
         onLogout={handleLogout}
+        onOpenQuickAdd={() => setQuickAddOpen(true)}
       />
 
-      <main className="pb-12">
+      <main>
         {effectiveRoute === '/' && (
           <LandingPage onNavigate={navigate} onTryDemo={handleTryDemo} />
         )}
@@ -309,6 +317,7 @@ export default function App() {
             onAddExpense={handleAddExpense}
             onDeleteExpense={handleDeleteExpense}
             onNavigate={navigate}
+            onOpenQuickAdd={() => setQuickAddOpen(true)}
           />
         )}
 
@@ -317,6 +326,7 @@ export default function App() {
             user={activeUser}
             onAddExpense={handleAddExpense}
             onDeleteExpense={handleDeleteExpense}
+            onOpenQuickAdd={() => setQuickAddOpen(true)}
           />
         )}
 
@@ -333,8 +343,58 @@ export default function App() {
 
         {effectiveRoute === '/year' && activeUser && <YearPage user={activeUser} />}
 
-        {effectiveRoute === '/reviews' && activeUser && <ReviewsPage user={activeUser} />}
+        {effectiveRoute === '/reviews' && activeUser && (
+          <ReviewsPage
+            user={activeUser}
+            onNavigate={navigate}
+            onOpenQuickAdd={() => setQuickAddOpen(true)}
+          />
+        )}
       </main>
+
+      {isFullySignedIn && (
+        <button
+          type="button"
+          onClick={() => setQuickAddOpen(true)}
+          className="bb-btn fixed right-4 bottom-[82px] z-30 inline-flex min-h-[52px] items-center gap-2 rounded-full bg-[#0E7C66] px-5 py-3 text-base font-extrabold text-white shadow-lg hover:bg-[#0A5A4A] md:hidden">
+          <Icon name="plus" className="h-5 w-5" />
+          <span>Add spending</span>
+        </button>
+      )}
+
+      {isFullySignedIn && quickAddOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-[#12201B]/45 p-0 backdrop-blur-xs sm:items-center sm:p-4"
+          onClick={() => setQuickAddOpen(false)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="quick-add-modal-title"
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-[24px] border border-[#DCEAE3] bg-white p-6 shadow-xl sm:rounded-[20px]">
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <div>
+                <h2 id="quick-add-modal-title" className="text-xl font-extrabold text-[#12201B]">
+                  Add spending
+                </h2>
+                <p className="text-sm text-[#43564F]">3 quick taps to log and update your day.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickAddOpen(false)}
+                aria-label="Close"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-[#DCEAE3] text-[#12201B] hover:bg-[#F3FAF7]">
+                <Icon name="x" className="h-5 w-5" />
+              </button>
+            </div>
+            <QuickAddExpense
+              compact
+              onAddExpense={handleAddExpense}
+              onDone={() => setQuickAddOpen(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

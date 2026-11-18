@@ -7,28 +7,28 @@ import type {
 } from './types';
 
 export const CATEGORY_LABELS: Record<string, string> = {
-  rent: 'Rent',
-  food: 'Food & groceries',
+  rent: 'Rent & housing',
+  food: 'Food',
   transport: 'Transport',
   data_airtime: 'Data & airtime',
-  utilities: 'Power, water & gas',
-  household: 'Household items',
-  health: 'Health & medicine',
+  utilities: 'Utilities',
+  household: 'Home supplies',
+  health: 'Health',
   school_fees: 'School fees',
   family_support: 'Family support',
-  debt_payments: 'Loan & debt payments',
-  giving: 'Giving & tithe',
+  debt_payments: 'Loan payments',
+  giving: 'Giving',
   insurance_subscriptions: 'Insurance & subscriptions',
-  eating_out: 'Eating out & snacks',
-  entertainment: 'Entertainment & outings',
+  eating_out: 'Eating out',
+  entertainment: 'Entertainment',
   personal_care: 'Personal care',
-  clothing_shopping: 'Clothing & shopping',
-  gifts: 'Gifts & occasions',
-  other: 'Other wants',
+  clothing_shopping: 'Clothing',
+  gifts: 'Gifts',
+  other: 'Other spending',
   no_spend: 'No spending today',
-  buffer: 'Monthly buffer',
-  emergency_fund: 'Emergency fund',
-  festive_fund: 'Festive fund',
+  buffer: 'Cushion for surprises',
+  emergency_fund: 'Emergency savings (for surprises)',
+  festive_fund: 'December & festive savings',
 };
 
 export const VARIABLE_CATEGORIES: ExpenseCategory[] = [
@@ -245,12 +245,12 @@ export function computePlanForUser(user: BudgetUser, asOfISO = todayLagosISO()):
       const monthly = normalizeToMonthlyKobo(c.amountKobo, c.frequency);
       const note =
         c.frequency === 'yearly'
-          ? `Monthly set-aside for yearly ${c.label.toLowerCase()}`
+          ? `Set aside each month for yearly ${c.label.toLowerCase()}`
           : c.frequency === 'termly'
-            ? `3-term average set-aside for ${c.label.toLowerCase()}`
+            ? `Spread evenly for each term's ${c.label.toLowerCase()}`
             : c.frequency === 'weekly'
-              ? `Monthly equivalent of weekly ${c.label.toLowerCase()}`
-              : `Monthly essential: ${c.label}`;
+              ? `Monthly total for weekly ${c.label.toLowerCase()}`
+              : `Essential bill each month`;
       items.push({
         category: c.category,
         label: c.label || categoryLabel(c.category),
@@ -279,7 +279,7 @@ export function computePlanForUser(user: BudgetUser, asOfISO = todayLagosISO()):
       chosen.push(...rest.slice(0, 3 - chosen.length));
     }
     const suggestions = chosen.map(
-      (c) => `Review what you spend on ${c.cost.label || categoryLabel(c.cost.category)} (${formatNaira(c.monthly)}/month).`,
+      (c) => `Take another look at ${c.cost.label || categoryLabel(c.cost.category)} (${formatNaira(c.monthly)} a month).`,
     );
     const variablePool = Object.entries(categoryAllowances)
       .filter(([cat]) => VARIABLE_CATEGORIES.includes(cat as ExpenseCategory))
@@ -287,7 +287,7 @@ export function computePlanForUser(user: BudgetUser, asOfISO = todayLagosISO()):
 
     return {
       status: 'DEFICIT',
-      statusMessage: `Your monthly needs are ${formatNaira(deficit)} higher than your income. You need ${formatNaira(needsTotal)}/month to break even.`,
+      statusMessage: `Your bills are ${formatNaira(deficit)} more than your income. You need ${formatNaira(needsTotal)} a month to cover everything.`,
       incomeMonthlyKobo: incomeMonthly,
       needsTotalKobo: needsTotal,
       savingsTotalKobo: 0,
@@ -323,10 +323,10 @@ export function computePlanForUser(user: BudgetUser, asOfISO = todayLagosISO()):
   if (bufferKobo > 0) {
     items.push({
       category: 'buffer',
-      label: 'Monthly buffer',
+      label: 'Cushion for surprises',
       group: 'buffer',
       amountKobo: bufferKobo,
-      note: '5% cushion for unexpected small expenses',
+      note: 'A 5% cushion for unexpected small things',
     });
   }
 
@@ -336,10 +336,10 @@ export function computePlanForUser(user: BudgetUser, asOfISO = todayLagosISO()):
   if (emergencyContrib > 0) {
     items.push({
       category: 'emergency_fund',
-      label: 'Emergency fund',
+      label: 'Emergency savings (for surprises)',
       group: 'savings',
       amountKobo: emergencyContrib,
-      note: `Building towards ${user.profile.emergencyMonths}-month safety net`,
+      note: `Building up to ${user.profile.emergencyMonths} months of your bills`,
     });
   }
 
@@ -350,10 +350,10 @@ export function computePlanForUser(user: BudgetUser, asOfISO = todayLagosISO()):
     if (festiveContrib > 0) {
       items.push({
         category: 'festive_fund',
-        label: 'Festive fund',
+        label: 'December & festive savings',
         group: 'savings',
         amountKobo: festiveContrib,
-        note: '3% monthly set-aside for December celebrations',
+        note: '3% put aside every month for December celebrations',
       });
     }
   }
@@ -394,7 +394,7 @@ export function computePlanForUser(user: BudgetUser, asOfISO = todayLagosISO()):
         label: `Goal: ${goal.name}`,
         group: 'savings',
         amountKobo: allocated,
-        note: `Saving towards ${goal.name}`,
+        note: `Steady monthly step towards ${goal.name}`,
       });
     }
     return {
@@ -419,7 +419,7 @@ export function computePlanForUser(user: BudgetUser, asOfISO = todayLagosISO()):
         label: categoryLabel(cat),
         group: 'wants',
         amountKobo: amt,
-        note: 'Flexible personal spending allowance',
+        note: 'Flexible money for things you enjoy',
       });
       categoryAllowances[cat] = (categoryAllowances[cat] ?? 0) + amt;
     }
@@ -430,8 +430,8 @@ export function computePlanForUser(user: BudgetUser, asOfISO = todayLagosISO()):
   const status = wantsTotal >= wantsFloor && allGoalsOnTrack ? 'BALANCED' : 'TIGHT';
   const statusMessage =
     status === 'BALANCED'
-      ? 'Your income covers all essentials, funds your savings, and leaves healthy daily spending room.'
-      : 'Your essentials are covered, though your wants or goals are stretched thin this month.';
+      ? 'Your income covers the things you must pay, builds your savings, and leaves healthy daily spending money.'
+      : 'Your bills are covered, though your enjoyment money or goals are a little tight this month.';
 
   const monthlyVariablePool = Object.entries(categoryAllowances)
     .filter(([cat]) => VARIABLE_CATEGORIES.includes(cat as ExpenseCategory))
@@ -626,13 +626,13 @@ export function computeReviewsForUser(
         message = 'Log a few more days to get your first review.';
       } else if (allowance > 0 && spent * 100 < allowance * 90) {
         status = 'on_track';
-        message = `You're doing well. You spent ${formatNaira(spent)} of your ${formatNaira(allowance)} allowance and kept ${formatNaira(allowance - spent)} in reserve.`;
+        message = `Great job. You kept ${formatNaira(allowance - spent)} aside this week (${formatNaira(spent)} spent of ${formatNaira(allowance)}).`;
       } else if (spent <= allowance) {
         status = 'close';
-        message = `You're close to your limit: ${formatNaira(spent)} of ${formatNaira(allowance)}. A gentle pause next week keeps you on track.`;
+        message = `You're close to what you can spend this week (${formatNaira(spent)} of ${formatNaira(allowance)}). Taking it gently for a couple of days keeps you on track.`;
       } else {
         status = 'over';
-        message = `You went ${formatNaira(spent - allowance)} over this week. Try a small adjustment next week, or update your plan if prices changed.`;
+        message = `You went a bit over this week (${formatNaira(spent - allowance)} extra). Here's an easy way to adjust: trim one small treat next week or update your plan.`;
       }
 
       results.push({
@@ -670,8 +670,8 @@ export function computeReviewsForUser(
         ).size,
         message:
           diff >= 0
-            ? `You spent ${formatNaira(cycSpent)} of your ${formatNaira(tracker.cyclePoolKobo)} cycle pool, finishing ${formatNaira(diff)} ahead.`
-            : `You spent ${formatNaira(cycSpent)} against a ${formatNaira(tracker.cyclePoolKobo)} cycle pool (${formatNaira(Math.abs(diff))} over).`,
+            ? `Great job. You spent ${formatNaira(cycSpent)} of ${formatNaira(tracker.cyclePoolKobo)} this pay period and kept ${formatNaira(diff)} aside.`
+            : `You went ${formatNaira(Math.abs(diff))} over what you could spend this pay period (${formatNaira(cycSpent)} spent of ${formatNaira(tracker.cyclePoolKobo)}). Here's an easy way to adjust next payday.`,
       });
     }
   }

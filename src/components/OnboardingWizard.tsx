@@ -1,5 +1,13 @@
 import {useState, type FormEvent} from 'react';
 import {koboToInputValue, parseNaira, todayLagosISO} from '../engine';
+import {CategoryCircle, Icon, TermHelp} from './Icons';
+import {
+  CalendarPlanIllustration,
+  CompassHomeIllustration,
+  PiggyBankIllustration,
+  ProgressBar,
+  WalletCoinsIllustration,
+} from './Illustrations';
 import type {
   BudgetUser,
   CostCategory,
@@ -20,7 +28,6 @@ interface CostRowDraft {
   frequency: CostFrequency;
   dueMonth: string;
   hint: string;
-  allowYearlyOnly?: boolean;
 }
 
 const DEFAULT_STEP3_ROWS: Array<{
@@ -29,7 +36,7 @@ const DEFAULT_STEP3_ROWS: Array<{
   frequency: CostFrequency;
   hint: string;
 }> = [
-  {category: 'rent', label: 'Rent', frequency: 'yearly', hint: 'For example: 480,000 a year'},
+  {category: 'rent', label: 'Rent & housing', frequency: 'yearly', hint: 'For example: 480,000 a year'},
   {
     category: 'utilities',
     label: 'Utilities (power, water & gas)',
@@ -50,7 +57,7 @@ const DEFAULT_STEP3_ROWS: Array<{
   },
   {
     category: 'food',
-    label: 'Food & groceries',
+    label: 'Food',
     frequency: 'monthly',
     hint: 'For example: 60,000 a month',
   },
@@ -169,8 +176,7 @@ export function OnboardingWizard({
     setStep((prev) => Math.max(1, prev - 1));
   }
 
-  function handleStep1(e: FormEvent) {
-    e.preventDefault();
+  function saveStep1(skipCity = false) {
     const errs: string[] = [];
     const deps = Number(dependentsCount);
     if (!Number.isInteger(deps) || deps < 0 || deps > 30) {
@@ -186,7 +192,7 @@ export function OnboardingWizard({
       onboardingStep: Math.max(user.onboardingStep, 2),
       profile: {
         ...user.profile,
-        city: city.trim(),
+        city: skipCity ? '' : city.trim(),
         householdType,
         dependentsCount: deps,
         housingType,
@@ -195,6 +201,11 @@ export function OnboardingWizard({
     };
     onSaveStep(updated);
     setStep(2);
+  }
+
+  function handleStep1(e: FormEvent) {
+    e.preventDefault();
+    saveStep1(false);
   }
 
   function handleStep2(e: FormEvent) {
@@ -278,12 +289,22 @@ export function OnboardingWizard({
     setStep(4);
   }
 
-  function handleStep4(e: FormEvent) {
-    e.preventDefault();
+  function skipStep3() {
+    setErrors([]);
+    const updated: BudgetUser = {
+      ...user,
+      onboardingStep: Math.max(user.onboardingStep, 4),
+      costs: [],
+    };
+    onSaveStep(updated);
+    setStep(4);
+  }
+
+  function saveStep4(skipGoals = false) {
     const errs: string[] = [];
     const emMonths = Number(emergencyMonths);
     if (!Number.isInteger(emMonths) || emMonths < 1 || emMonths > 12) {
-      errs.push('Emergency fund months must be between 1 and 12.');
+      errs.push('Emergency savings months must be between 1 and 12.');
     }
 
     let emSavedKobo = 0;
@@ -292,51 +313,53 @@ export function OnboardingWizard({
         emSavedKobo = parseNaira(emergencySaved);
       } catch (err) {
         errs.push(
-          `Emergency saved: ${err instanceof Error ? err.message : 'Enter a valid Naira amount.'}`,
+          `Emergency savings so far: ${err instanceof Error ? err.message : 'Enter a valid Naira amount.'}`,
         );
       }
     }
 
     const parsedGoals: GoalItem[] = [];
-    goalDrafts.forEach((g, idx) => {
-      const hasAny = g.name.trim() || g.target.trim() || g.deadline.trim();
-      if (!hasAny) return;
-      if (!g.name.trim()) {
-        errs.push(`Goal ${idx + 1}: please enter a goal name.`);
-        return;
-      }
-      let targetKobo = 0;
-      try {
-        targetKobo = parseNaira(g.target);
-        if (targetKobo <= 0) {
-          errs.push(`${g.name}: target must be greater than ₦0.`);
+    if (!skipGoals) {
+      goalDrafts.forEach((g, idx) => {
+        const hasAny = g.name.trim() || g.target.trim() || g.deadline.trim();
+        if (!hasAny) return;
+        if (!g.name.trim()) {
+          errs.push(`Goal ${idx + 1}: please enter a goal name.`);
           return;
         }
-      } catch (err) {
-        errs.push(`${g.name} target: ${err instanceof Error ? err.message : 'Invalid amount.'}`);
-        return;
-      }
-      let savedKobo = 0;
-      if (g.saved.trim()) {
+        let targetKobo = 0;
         try {
-          savedKobo = parseNaira(g.saved);
+          targetKobo = parseNaira(g.target);
+          if (targetKobo <= 0) {
+            errs.push(`${g.name}: target must be greater than ₦0.`);
+            return;
+          }
         } catch (err) {
-          errs.push(`${g.name} saved: ${err instanceof Error ? err.message : 'Invalid amount.'}`);
+          errs.push(`${g.name} target: ${err instanceof Error ? err.message : 'Invalid amount.'}`);
           return;
         }
-      }
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(g.deadline)) {
-        errs.push(`${g.name}: please choose a deadline date.`);
-        return;
-      }
-      parsedGoals.push({
-        id: `goal-${idx + 1}-${Date.now()}`,
-        name: g.name.trim(),
-        targetKobo,
-        savedKobo,
-        deadline: g.deadline,
+        let savedKobo = 0;
+        if (g.saved.trim()) {
+          try {
+            savedKobo = parseNaira(g.saved);
+          } catch (err) {
+            errs.push(`${g.name} saved: ${err instanceof Error ? err.message : 'Invalid amount.'}`);
+            return;
+          }
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(g.deadline)) {
+          errs.push(`${g.name}: please choose a deadline date.`);
+          return;
+        }
+        parsedGoals.push({
+          id: `goal-${idx + 1}-${Date.now()}`,
+          name: g.name.trim(),
+          targetKobo,
+          savedKobo,
+          deadline: g.deadline,
+        });
       });
-    });
+    }
 
     if (errs.length > 0) {
       setErrors(errs);
@@ -356,6 +379,11 @@ export function OnboardingWizard({
     };
     onSaveStep(updated);
     setStep(5);
+  }
+
+  function handleStep4(e: FormEvent) {
+    e.preventDefault();
+    saveStep4(false);
   }
 
   function handleStep5(e: FormEvent) {
@@ -379,564 +407,685 @@ export function OnboardingWizard({
   const progressPct = Math.round((step / 5) * 100);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
-      <div className="rounded-[14px] border border-[#E1E8E4] bg-white p-6 shadow-xs">
-        <div className="mb-1 flex items-center justify-between text-xs font-bold uppercase tracking-wider text-[#5A6B64]">
-          <span>Step {step} of 5</span>
-          <span>{progressPct}%</span>
-        </div>
-        <progress
-          value={step}
-          max={5}
-          aria-label={`Onboarding progress: step ${step} of 5`}
-          className="h-3 w-full overflow-hidden rounded-full accent-[#0E7C66]"
-        />
-
-        {errors.length > 0 && (
-          <div
-            role="alert"
-            className="mt-4 rounded-xl border border-[#F4C2C2] bg-[#FDECEC] p-3.5 text-sm text-[#9B1C1C]">
-            <ul className="list-disc pl-5">
-              {errors.map((err) => (
-                <li key={err}>{err}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
+    <div className="min-h-[calc(100vh-64px)] bg-[#FDF9F0] py-8">
+      <div className="mx-auto max-w-3xl px-4">
         {step === 1 && (
-          <form onSubmit={handleStep1} className="mt-6 space-y-4">
-            <div>
-              <h1 className="text-2xl font-extrabold text-[#12201B]">About you</h1>
-              <p className="mt-1 text-sm text-[#5A6B64]">
-                Help us understand your household so your plan fits your reality.
-              </p>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="ob-city" className="mb-1 block text-sm font-semibold">
-                  City or town
-                </label>
-                <input
-                  id="ob-city"
-                  type="text"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="For example: Lagos, Abuja, or Ibadan"
-                  className="min-h-12 w-full rounded-xl border border-[#C9D5CF] px-3 py-2.5 text-sm"
-                />
+          <section
+            aria-label="How setup works"
+            className="bb-card-in mb-5 rounded-[20px] border border-[#EAE1CC] bg-white p-5 shadow-xs sm:p-6">
+            <h2 className="text-lg font-extrabold text-[#12201B]">
+              Welcome, {user.displayName}. Setting up takes 2 minutes:
+            </h2>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl bg-[#F3FAF7] p-3.5">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#0E7C66] text-sm font-bold text-white">
+                  1
+                </span>
+                <p className="mt-2 text-base font-semibold text-[#12201B]">
+                  1. Tell us what you earn.
+                </p>
               </div>
-
-              <div>
-                <label htmlFor="ob-household" className="mb-1 block text-sm font-semibold">
-                  Household type
-                </label>
-                <select
-                  id="ob-household"
-                  value={householdType}
-                  onChange={(e) => setHouseholdType(e.target.value as HouseholdType)}
-                  className="min-h-12 w-full rounded-xl border border-[#C9D5CF] bg-white px-3 py-2.5 text-sm">
-                  <option value="alone">Alone</option>
-                  <option value="partner">Partner</option>
-                  <option value="family">Family</option>
-                  <option value="roommates">Roommates</option>
-                </select>
+              <div className="rounded-2xl bg-[#FEF6E6] p-3.5">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#F4A81D] text-sm font-bold text-[#12201B]">
+                  2
+                </span>
+                <p className="mt-2 text-base font-semibold text-[#12201B]">
+                  2. Tell us what you must pay.
+                </p>
+              </div>
+              <div className="rounded-2xl bg-[#EBF3FF] p-3.5">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#1D4ED8] text-sm font-bold text-white">
+                  3
+                </span>
+                <p className="mt-2 text-base font-semibold text-[#12201B]">
+                  3. We build your plan.
+                </p>
               </div>
             </div>
-
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <label htmlFor="ob-deps" className="mb-1 block text-sm font-semibold">
-                  Number of dependents
-                </label>
-                <input
-                  id="ob-deps"
-                  type="number"
-                  min={0}
-                  max={30}
-                  value={dependentsCount}
-                  onChange={(e) => setDependentsCount(e.target.value)}
-                  className="min-h-12 w-full rounded-xl border border-[#C9D5CF] px-3 py-2.5 text-sm"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="ob-housing" className="mb-1 block text-sm font-semibold">
-                  Housing type
-                </label>
-                <select
-                  id="ob-housing"
-                  value={housingType}
-                  onChange={(e) => setHousingType(e.target.value as HousingType)}
-                  className="min-h-12 w-full rounded-xl border border-[#C9D5CF] bg-white px-3 py-2.5 text-sm">
-                  <option value="rent">Renting</option>
-                  <option value="own">Own home</option>
-                  <option value="family_house">Family house</option>
-                  <option value="company_housing">Company housing</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="ob-emp" className="mb-1 block text-sm font-semibold">
-                  Employment type
-                </label>
-                <select
-                  id="ob-emp"
-                  value={employmentType}
-                  onChange={(e) => setEmploymentType(e.target.value as EmploymentType)}
-                  className="min-h-12 w-full rounded-xl border border-[#C9D5CF] bg-white px-3 py-2.5 text-sm">
-                  <option value="salary">Monthly salary</option>
-                  <option value="corps_member">NYSC corps member</option>
-                  <option value="student_allowance">Student allowance</option>
-                  <option value="wages">Weekly / daily wages</option>
-                  <option value="business_irregular">Irregular business</option>
-                </select>
-              </div>
-            </div>
-
-            {employmentType === 'business_irregular' && (
-              <p className="rounded-xl border border-[#C3E6DC] bg-[#E8F5F1] p-3 text-xs text-[#0A5A4A]">
-                Note: For irregular business income, version one plans using your average monthly
-                take-home amount.
-              </p>
-            )}
-
-            <div className="flex justify-end pt-2">
-              <button
-                type="submit"
-                className="min-h-12 rounded-xl bg-[#0E7C66] px-6 py-3 text-sm font-bold text-white hover:bg-[#0A5A4A]">
-                Next
-              </button>
-            </div>
-          </form>
+          </section>
         )}
 
-        {step === 2 && (
-          <form onSubmit={handleStep2} className="mt-6 space-y-4">
-            <div>
-              <h1 className="text-2xl font-extrabold text-[#12201B]">Income</h1>
-              <p className="mt-1 text-sm text-[#5A6B64]">
-                Enter your regular take-home pay in Naira and when your next payday lands.
-              </p>
-            </div>
+        <div className="bb-card-in rounded-[20px] border border-[#E5DEC9] bg-white p-6 shadow-sm sm:p-8">
+          <div className="mb-2 flex items-center justify-between text-base font-bold text-[#0A5A4A]">
+            <span>Step {step} of 5</span>
+            <span className="tabular-nums text-[#5A6B64]">{progressPct}%</span>
+          </div>
+          <ProgressBar
+            percentage={progressPct}
+            color="#0E7C66"
+            trackClassName="bg-[#EFE9D8]"
+            heightClass="h-3.5"
+          />
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <label htmlFor="ob-inc-amt" className="mb-1 block text-sm font-semibold">
-                  Amount (₦)
-                </label>
-                <input
-                  id="ob-inc-amt"
-                  type="text"
-                  value={incomeAmount}
-                  onChange={(e) => setIncomeAmount(e.target.value)}
-                  placeholder="For example: 180,000"
-                  className="min-h-12 w-full rounded-xl border border-[#C9D5CF] px-3 py-2.5 text-sm"
-                />
+          {errors.length > 0 && (
+            <div
+              role="alert"
+              className="mt-5 flex items-start gap-3 rounded-2xl border border-[#F4C2C2] bg-[#FFF5F5] p-4 text-base text-[#9B1C1C]">
+              <Icon name="alert-triangle" className="mt-0.5 h-5 w-5 shrink-0" />
+              <ul className="list-disc space-y-1 pl-4">
+                {errors.map((err) => (
+                  <li key={err}>{err}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {step === 1 && (
+            <form onSubmit={handleStep1} className="mt-6 space-y-5">
+              <div className="flex flex-col-reverse items-start justify-between gap-4 sm:flex-row sm:items-center">
+                <div>
+                  <h1 className="text-2xl font-extrabold text-[#12201B] sm:text-3xl">
+                    First, tell us about you
+                  </h1>
+                  <p className="mt-1 text-base text-[#43564F]">
+                    Why we ask: Your household and work type help us tailor a realistic plan for
+                    everyday life.
+                  </p>
+                </div>
+                <CompassHomeIllustration className="h-24 w-32 shrink-0" />
               </div>
 
-              <div>
-                <label htmlFor="ob-inc-freq" className="mb-1 block text-sm font-semibold">
-                  How often paid
-                </label>
-                <select
-                  id="ob-inc-freq"
-                  value={incomeFreq}
-                  onChange={(e) => setIncomeFreq(e.target.value as IncomeFrequency)}
-                  className="min-h-12 w-full rounded-xl border border-[#C9D5CF] bg-white px-3 py-2.5 text-sm">
-                  <option value="monthly">Monthly</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="biweekly">Every two weeks</option>
-                </select>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="ob-city" className="mb-1.5 block text-base font-semibold text-[#12201B]">
+                    City or town (optional)
+                  </label>
+                  <input
+                    id="ob-city"
+                    type="text"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="For example: Lagos, Abuja, or Ibadan"
+                    className="min-h-[48px] w-full rounded-2xl border border-[#C3D4CB] px-4 py-3 text-base text-[#12201B] focus:border-[#0E7C66] focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="ob-household" className="mb-1.5 block text-base font-semibold text-[#12201B]">
+                    Who lives with you?
+                  </label>
+                  <select
+                    id="ob-household"
+                    value={householdType}
+                    onChange={(e) => setHouseholdType(e.target.value as HouseholdType)}
+                    className="min-h-[48px] w-full rounded-2xl border border-[#C3D4CB] bg-white px-4 py-3 text-base text-[#12201B] focus:border-[#0E7C66] focus:outline-none">
+                    <option value="alone">Just me (living alone)</option>
+                    <option value="partner">Me and my partner</option>
+                    <option value="family">Family with children or relatives</option>
+                    <option value="roommates">Sharing with roommates</option>
+                  </select>
+                </div>
               </div>
 
-              <div>
-                <label htmlFor="ob-pay-date" className="mb-1 block text-sm font-semibold">
-                  Next pay date
-                </label>
-                <input
-                  id="ob-pay-date"
-                  type="date"
-                  value={nextPayDate}
-                  onChange={(e) => setNextPayDate(e.target.value)}
-                  className="min-h-12 w-full rounded-xl border border-[#C9D5CF] px-3 py-2.5 text-sm"
-                />
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <label htmlFor="ob-deps" className="mb-1.5 block text-base font-semibold text-[#12201B]">
+                    People you support
+                  </label>
+                  <input
+                    id="ob-deps"
+                    type="number"
+                    min={0}
+                    max={30}
+                    value={dependentsCount}
+                    onChange={(e) => setDependentsCount(e.target.value)}
+                    placeholder="For example: 0 or 2"
+                    className="min-h-[48px] w-full rounded-2xl border border-[#C3D4CB] px-4 py-3 text-base text-[#12201B] focus:border-[#0E7C66] focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="ob-housing" className="mb-1.5 block text-base font-semibold text-[#12201B]">
+                    Where you stay
+                  </label>
+                  <select
+                    id="ob-housing"
+                    value={housingType}
+                    onChange={(e) => setHousingType(e.target.value as HousingType)}
+                    className="min-h-[48px] w-full rounded-2xl border border-[#C3D4CB] bg-white px-4 py-3 text-base text-[#12201B] focus:border-[#0E7C66] focus:outline-none">
+                    <option value="rent">Renting an apartment</option>
+                    <option value="own">Own home</option>
+                    <option value="family_house">Family house</option>
+                    <option value="company_housing">Company housing</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="ob-emp" className="mb-1.5 block text-base font-semibold text-[#12201B]">
+                    How you earn
+                  </label>
+                  <select
+                    id="ob-emp"
+                    value={employmentType}
+                    onChange={(e) => setEmploymentType(e.target.value as EmploymentType)}
+                    className="min-h-[48px] w-full rounded-2xl border border-[#C3D4CB] bg-white px-4 py-3 text-base text-[#12201B] focus:border-[#0E7C66] focus:outline-none">
+                    <option value="salary">Monthly salary</option>
+                    <option value="corps_member">NYSC corps member</option>
+                    <option value="student_allowance">Student allowance</option>
+                    <option value="wages">Weekly / daily wages</option>
+                    <option value="business_irregular">Own business (varies)</option>
+                  </select>
+                </div>
               </div>
-            </div>
 
-            <div className="flex items-center justify-between pt-2">
-              <button
-                type="button"
-                onClick={goBack}
-                className="min-h-12 rounded-xl border border-[#C9D5CF] bg-white px-5 py-3 text-sm font-bold text-[#12201B] hover:bg-[#F5F7F4]">
-                Back
-              </button>
-              <button
-                type="submit"
-                className="min-h-12 rounded-xl bg-[#0E7C66] px-6 py-3 text-sm font-bold text-white hover:bg-[#0A5A4A]">
-                Next
-              </button>
-            </div>
-          </form>
-        )}
+              {employmentType === 'business_irregular' && (
+                <p className="rounded-2xl border border-[#BCE2D5] bg-[#E8F5F1] p-4 text-base text-[#0A5A4A]">
+                  If your business income goes up and down, enter the typical amount you take home
+                  each month so your plan stays steady.
+                </p>
+              )}
 
-        {step === 3 && (
-          <form onSubmit={handleStep3} className="mt-6 space-y-4">
-            <div>
-              <h1 className="text-2xl font-extrabold text-[#12201B]">What you must pay</h1>
-              <p className="mt-1 text-sm text-[#5A6B64]">
-                Enter your essential costs. Leave blank any item that does not apply to you.
-              </p>
-            </div>
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => saveStep1(true)}
+                  className="bb-btn min-h-[48px] rounded-2xl border border-[#C3D4CB] bg-white px-5 py-3 text-base font-bold text-[#31443D] hover:bg-[#F3FAF7]">
+                  Skip city for now
+                </button>
+                <button
+                  type="submit"
+                  className="bb-btn inline-flex min-h-[48px] items-center gap-2 rounded-2xl bg-[#0E7C66] px-6 py-3 text-base font-bold text-white hover:bg-[#0A5A4A]">
+                  <span>Next</span>
+                  <Icon name="arrow-right" className="h-5 w-5" />
+                </button>
+              </div>
+            </form>
+          )}
 
-            <div className="space-y-3">
-              {costDrafts.map((row, idx) => (
-                <div
-                  key={row.category}
-                  className="grid gap-3 rounded-xl border border-[#E1E8E4] bg-[#F5F7F4] p-3.5 sm:grid-cols-12 sm:items-end">
-                  <div className="sm:col-span-4">
-                    <span className="block text-sm font-semibold text-[#12201B]">{row.label}</span>
-                    <span className="text-xs text-[#5A6B64]">{row.hint}</span>
-                  </div>
+          {step === 2 && (
+            <form onSubmit={handleStep2} className="mt-6 space-y-5">
+              <div className="flex flex-col-reverse items-start justify-between gap-4 sm:flex-row sm:items-center">
+                <div>
+                  <h1 className="text-2xl font-extrabold text-[#12201B] sm:text-3xl">
+                    Next, tell us what you earn
+                  </h1>
+                  <p className="mt-1 text-base text-[#43564F]">
+                    Why we ask: Your take-home amount and next payday let us work out what is safe to
+                    spend each day between paydays.
+                  </p>
+                </div>
+                <WalletCoinsIllustration className="h-24 w-32 shrink-0" />
+              </div>
 
-                  <div className="sm:col-span-4">
-                    <label
-                      htmlFor={`cost-amt-${idx}`}
-                      className="mb-1 block text-xs font-semibold text-[#5A6B64]">
-                      Amount (₦)
-                    </label>
-                    <input
-                      id={`cost-amt-${idx}`}
-                      type="text"
-                      value={row.amount}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setCostDrafts((prev) =>
-                          prev.map((item, i) => (i === idx ? {...item, amount: val} : item)),
-                        );
-                      }}
-                      placeholder={row.hint}
-                      className="min-h-12 w-full rounded-xl border border-[#C9D5CF] bg-white px-3 py-2 text-sm"
-                    />
-                  </div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <label htmlFor="ob-inc-amt" className="mb-1.5 block text-base font-semibold text-[#12201B]">
+                    Take-home pay (₦)
+                  </label>
+                  <input
+                    id="ob-inc-amt"
+                    type="text"
+                    value={incomeAmount}
+                    onChange={(e) => setIncomeAmount(e.target.value)}
+                    placeholder="For example: 180,000"
+                    className="min-h-[48px] w-full rounded-2xl border border-[#C3D4CB] px-4 py-3 text-base text-[#12201B] focus:border-[#0E7C66] focus:outline-none"
+                  />
+                </div>
 
-                  <div className="sm:col-span-2">
-                    <label
-                      htmlFor={`cost-freq-${idx}`}
-                      className="mb-1 block text-xs font-semibold text-[#5A6B64]">
-                      Frequency
-                    </label>
-                    {row.category === 'rent' ? (
-                      <select
-                        id={`cost-freq-${idx}`}
-                        value={row.frequency === 'yearly' ? 'yearly' : 'monthly'}
+                <div>
+                  <label htmlFor="ob-inc-freq" className="mb-1.5 block text-base font-semibold text-[#12201B]">
+                    How often you are paid
+                  </label>
+                  <select
+                    id="ob-inc-freq"
+                    value={incomeFreq}
+                    onChange={(e) => setIncomeFreq(e.target.value as IncomeFrequency)}
+                    className="min-h-[48px] w-full rounded-2xl border border-[#C3D4CB] bg-white px-4 py-3 text-base text-[#12201B] focus:border-[#0E7C66] focus:outline-none">
+                    <option value="monthly">Monthly</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="biweekly">Every two weeks</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="ob-pay-date" className="mb-1.5 block text-base font-semibold text-[#12201B]">
+                    Next pay date
+                  </label>
+                  <input
+                    id="ob-pay-date"
+                    type="date"
+                    value={nextPayDate}
+                    onChange={(e) => setNextPayDate(e.target.value)}
+                    className="min-h-[48px] w-full rounded-2xl border border-[#C3D4CB] px-4 py-3 text-base text-[#12201B] focus:border-[#0E7C66] focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <TermHelp title="What's this? Why use take-home pay?">
+                Take-home pay is the actual money that lands in your account after tax or pension.
+                Planning with what actually arrives keeps your numbers honest.
+              </TermHelp>
+
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  type="button"
+                  onClick={goBack}
+                  className="bb-btn inline-flex min-h-[48px] items-center gap-2 rounded-2xl border border-[#C3D4CB] bg-white px-5 py-3 text-base font-bold text-[#12201B] hover:bg-[#F3FAF7]">
+                  <Icon name="arrow-left" className="h-5 w-5" />
+                  <span>Back</span>
+                </button>
+                <button
+                  type="submit"
+                  className="bb-btn inline-flex min-h-[48px] items-center gap-2 rounded-2xl bg-[#0E7C66] px-6 py-3 text-base font-bold text-white hover:bg-[#0A5A4A]">
+                  <span>Next</span>
+                  <Icon name="arrow-right" className="h-5 w-5" />
+                </button>
+              </div>
+            </form>
+          )}
+
+          {step === 3 && (
+            <form onSubmit={handleStep3} className="mt-6 space-y-5">
+              <div className="flex flex-col-reverse items-start justify-between gap-4 sm:flex-row sm:items-center">
+                <div>
+                  <h1 className="text-2xl font-extrabold text-[#12201B] sm:text-3xl">
+                    Things you must pay
+                  </h1>
+                  <p className="mt-1 text-base text-[#43564F]">
+                    Why we ask: Setting aside money for rent, food, bills, and big yearly costs
+                    first protects you from payday surprises. Leave blank anything that does not
+                    apply.
+                  </p>
+                </div>
+                <CalendarPlanIllustration className="h-24 w-32 shrink-0" />
+              </div>
+
+              <TermHelp title="What's this? Yearly rent and school fees">
+                When you enter a yearly bill like rent, Budget Buddy automatically divides it into a
+                small monthly amount so the money is ready when due.
+              </TermHelp>
+
+              <div className="space-y-3">
+                {costDrafts.map((row, idx) => (
+                  <div
+                    key={row.category}
+                    className="grid gap-3 rounded-2xl border border-[#E2EAE6] bg-[#F8FBF9] p-4 sm:grid-cols-12 sm:items-end">
+                    <div className="flex items-center gap-3 sm:col-span-4">
+                      <CategoryCircle category={row.category} size="md" />
+                      <div>
+                        <span className="block text-base font-bold text-[#12201B]">{row.label}</span>
+                        <span className="text-sm text-[#5A6B64]">{row.hint}</span>
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-4">
+                      <label
+                        htmlFor={`cost-amt-${idx}`}
+                        className="mb-1 block text-sm font-semibold text-[#31443D]">
+                        Amount (₦)
+                      </label>
+                      <input
+                        id={`cost-amt-${idx}`}
+                        type="text"
+                        value={row.amount}
                         onChange={(e) => {
-                          const val = e.target.value as CostFrequency;
+                          const val = e.target.value;
                           setCostDrafts((prev) =>
-                            prev.map((item, i) => (i === idx ? {...item, frequency: val} : item)),
+                            prev.map((item, i) => (i === idx ? {...item, amount: val} : item)),
                           );
                         }}
-                        className="min-h-12 w-full rounded-xl border border-[#C9D5CF] bg-white px-2.5 py-2 text-sm">
-                        <option value="yearly">Yearly</option>
-                        <option value="monthly">Monthly</option>
-                      </select>
-                    ) : (
-                      <select
-                        id={`cost-freq-${idx}`}
-                        value={row.frequency}
+                        placeholder={row.hint}
+                        className="min-h-[48px] w-full rounded-2xl border border-[#C3D4CB] bg-white px-3.5 py-2.5 text-base text-[#12201B] focus:border-[#0E7C66] focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label
+                        htmlFor={`cost-freq-${idx}`}
+                        className="mb-1 block text-sm font-semibold text-[#31443D]">
+                        How often
+                      </label>
+                      {row.category === 'rent' ? (
+                        <select
+                          id={`cost-freq-${idx}`}
+                          value={row.frequency === 'yearly' ? 'yearly' : 'monthly'}
+                          onChange={(e) => {
+                            const val = e.target.value as CostFrequency;
+                            setCostDrafts((prev) =>
+                              prev.map((item, i) => (i === idx ? {...item, frequency: val} : item)),
+                            );
+                          }}
+                          className="min-h-[48px] w-full rounded-2xl border border-[#C3D4CB] bg-white px-3 py-2.5 text-base text-[#12201B]">
+                          <option value="yearly">Yearly</option>
+                          <option value="monthly">Monthly</option>
+                        </select>
+                      ) : (
+                        <select
+                          id={`cost-freq-${idx}`}
+                          value={row.frequency}
+                          onChange={(e) => {
+                            const val = e.target.value as CostFrequency;
+                            setCostDrafts((prev) =>
+                              prev.map((item, i) => (i === idx ? {...item, frequency: val} : item)),
+                            );
+                          }}
+                          className="min-h-[48px] w-full rounded-2xl border border-[#C3D4CB] bg-white px-3 py-2.5 text-base text-[#12201B]">
+                          <option value="monthly">Monthly</option>
+                          <option value="termly">Per term</option>
+                          <option value="yearly">Yearly</option>
+                          <option value="weekly">Weekly</option>
+                        </select>
+                      )}
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label
+                        htmlFor={`cost-due-${idx}`}
+                        className="mb-1 block text-sm font-semibold text-[#31443D]">
+                        Due month
+                      </label>
+                      <input
+                        id={`cost-due-${idx}`}
+                        type="number"
+                        min={1}
+                        max={12}
+                        placeholder="e.g. 6"
+                        value={row.dueMonth}
                         onChange={(e) => {
-                          const val = e.target.value as CostFrequency;
+                          const val = e.target.value;
                           setCostDrafts((prev) =>
-                            prev.map((item, i) => (i === idx ? {...item, frequency: val} : item)),
+                            prev.map((item, i) => (i === idx ? {...item, dueMonth: val} : item)),
                           );
                         }}
-                        className="min-h-12 w-full rounded-xl border border-[#C9D5CF] bg-white px-2.5 py-2 text-sm">
-                        <option value="monthly">Monthly</option>
-                        <option value="termly">Per term</option>
-                        <option value="yearly">Yearly</option>
-                        <option value="weekly">Weekly</option>
-                      </select>
-                    )}
+                        className="min-h-[48px] w-full rounded-2xl border border-[#C3D4CB] bg-white px-3 py-2.5 text-base text-[#12201B]"
+                      />
+                    </div>
                   </div>
+                ))}
+              </div>
 
-                  <div className="sm:col-span-2">
-                    <label
-                      htmlFor={`cost-due-${idx}`}
-                      className="mb-1 block text-xs font-semibold text-[#5A6B64]">
-                      Due month
-                    </label>
-                    <input
-                      id={`cost-due-${idx}`}
-                      type="number"
-                      min={1}
-                      max={12}
-                      placeholder="1–12"
-                      value={row.dueMonth}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setCostDrafts((prev) =>
-                          prev.map((item, i) => (i === idx ? {...item, dueMonth: val} : item)),
-                        );
-                      }}
-                      className="min-h-12 w-full rounded-xl border border-[#C9D5CF] bg-white px-2.5 py-2 text-sm"
-                    />
-                  </div>
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={goBack}
+                  className="bb-btn inline-flex min-h-[48px] items-center gap-2 rounded-2xl border border-[#C3D4CB] bg-white px-5 py-3 text-base font-bold text-[#12201B] hover:bg-[#F3FAF7]">
+                  <Icon name="arrow-left" className="h-5 w-5" />
+                  <span>Back</span>
+                </button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={skipStep3}
+                    className="bb-btn min-h-[48px] rounded-2xl border border-[#C3D4CB] bg-white px-5 py-3 text-base font-bold text-[#31443D] hover:bg-[#F3FAF7]">
+                    Skip for now
+                  </button>
+                  <button
+                    type="submit"
+                    className="bb-btn inline-flex min-h-[48px] items-center gap-2 rounded-2xl bg-[#0E7C66] px-6 py-3 text-base font-bold text-white hover:bg-[#0A5A4A]">
+                    <span>Next</span>
+                    <Icon name="arrow-right" className="h-5 w-5" />
+                  </button>
                 </div>
-              ))}
-            </div>
-
-            <div className="flex items-center justify-between pt-2">
-              <button
-                type="button"
-                onClick={goBack}
-                className="min-h-12 rounded-xl border border-[#C9D5CF] bg-white px-5 py-3 text-sm font-bold text-[#12201B] hover:bg-[#F5F7F4]">
-                Back
-              </button>
-              <button
-                type="submit"
-                className="min-h-12 rounded-xl bg-[#0E7C66] px-6 py-3 text-sm font-bold text-white hover:bg-[#0A5A4A]">
-                Next
-              </button>
-            </div>
-          </form>
-        )}
-
-        {step === 4 && (
-          <form onSubmit={handleStep4} className="mt-6 space-y-4">
-            <div>
-              <h1 className="text-2xl font-extrabold text-[#12201B]">Goals</h1>
-              <p className="mt-1 text-sm text-[#5A6B64]">
-                Set your emergency fund cushion and up to 3 personal savings goals.
-              </p>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="ob-em-months" className="mb-1 block text-sm font-semibold">
-                  Emergency fund months
-                </label>
-                <input
-                  id="ob-em-months"
-                  type="number"
-                  min={1}
-                  max={12}
-                  value={emergencyMonths}
-                  onChange={(e) => setEmergencyMonths(e.target.value)}
-                  className="min-h-12 w-full rounded-xl border border-[#C9D5CF] px-3 py-2.5 text-sm"
-                />
-                <span className="mt-1 block text-xs text-[#5A6B64]">
-                  For example: 3 months of essential costs.
-                </span>
               </div>
+            </form>
+          )}
 
-              <div>
-                <label htmlFor="ob-em-saved" className="mb-1 block text-sm font-semibold">
-                  Emergency amount already saved (₦)
-                </label>
-                <input
-                  id="ob-em-saved"
-                  type="text"
-                  value={emergencySaved}
-                  onChange={(e) => setEmergencySaved(e.target.value)}
-                  placeholder="For example: 50,000"
-                  className="min-h-12 w-full rounded-xl border border-[#C9D5CF] px-3 py-2.5 text-sm"
-                />
-              </div>
-            </div>
-
-            <label className="flex min-h-12 cursor-pointer items-center gap-2.5 text-sm font-medium text-[#12201B]">
-              <input
-                type="checkbox"
-                checked={festiveEnabled}
-                onChange={(e) => setFestiveEnabled(e.target.checked)}
-                className="h-5 w-5 accent-[#0E7C66]"
-              />
-              <span>Set aside 3% monthly for December &amp; festive expenses</span>
-            </label>
-
-            <div className="space-y-3 pt-2">
-              <h2 className="text-base font-bold text-[#12201B]">Savings goals (up to 3, optional)</h2>
-              {goalDrafts.map((g, idx) => (
-                <div
-                  key={idx}
-                  className="grid gap-3 rounded-xl border border-[#E1E8E4] bg-[#F5F7F4] p-3.5 sm:grid-cols-4">
-                  <div>
-                    <label
-                      htmlFor={`goal-name-${idx}`}
-                      className="mb-1 block text-xs font-semibold text-[#5A6B64]">
-                      Goal {idx + 1} name
-                    </label>
-                    <input
-                      id={`goal-name-${idx}`}
-                      type="text"
-                      value={g.name}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setGoalDrafts((prev) =>
-                          prev.map((item, i) => (i === idx ? {...item, name: val} : item)),
-                        );
-                      }}
-                      placeholder="For example: Solar power"
-                      className="min-h-12 w-full rounded-xl border border-[#C9D5CF] bg-white px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor={`goal-target-${idx}`}
-                      className="mb-1 block text-xs font-semibold text-[#5A6B64]">
-                      Target (₦)
-                    </label>
-                    <input
-                      id={`goal-target-${idx}`}
-                      type="text"
-                      value={g.target}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setGoalDrafts((prev) =>
-                          prev.map((item, i) => (i === idx ? {...item, target: val} : item)),
-                        );
-                      }}
-                      placeholder="For example: 300,000"
-                      className="min-h-12 w-full rounded-xl border border-[#C9D5CF] bg-white px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor={`goal-saved-${idx}`}
-                      className="mb-1 block text-xs font-semibold text-[#5A6B64]">
-                      Saved so far (₦)
-                    </label>
-                    <input
-                      id={`goal-saved-${idx}`}
-                      type="text"
-                      value={g.saved}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setGoalDrafts((prev) =>
-                          prev.map((item, i) => (i === idx ? {...item, saved: val} : item)),
-                        );
-                      }}
-                      placeholder="For example: 40,000"
-                      className="min-h-12 w-full rounded-xl border border-[#C9D5CF] bg-white px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor={`goal-deadline-${idx}`}
-                      className="mb-1 block text-xs font-semibold text-[#5A6B64]">
-                      Deadline
-                    </label>
-                    <input
-                      id={`goal-deadline-${idx}`}
-                      type="date"
-                      value={g.deadline}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setGoalDrafts((prev) =>
-                          prev.map((item, i) => (i === idx ? {...item, deadline: val} : item)),
-                        );
-                      }}
-                      className="min-h-12 w-full rounded-xl border border-[#C9D5CF] bg-white px-3 py-2 text-sm"
-                    />
-                  </div>
+          {step === 4 && (
+            <form onSubmit={handleStep4} className="mt-6 space-y-5">
+              <div className="flex flex-col-reverse items-start justify-between gap-4 sm:flex-row sm:items-center">
+                <div>
+                  <h1 className="text-2xl font-extrabold text-[#12201B] sm:text-3xl">
+                    Emergency savings &amp; goals
+                  </h1>
+                  <p className="mt-1 text-base text-[#43564F]">
+                    Why we ask: Even a small pot for surprises and one personal goal makes saving
+                    automatic instead of an afterthought.
+                  </p>
                 </div>
-              ))}
-            </div>
-
-            <div className="flex items-center justify-between pt-2">
-              <button
-                type="button"
-                onClick={goBack}
-                className="min-h-12 rounded-xl border border-[#C9D5CF] bg-white px-5 py-3 text-sm font-bold text-[#12201B] hover:bg-[#F5F7F4]">
-                Back
-              </button>
-              <button
-                type="submit"
-                className="min-h-12 rounded-xl bg-[#0E7C66] px-6 py-3 text-sm font-bold text-white hover:bg-[#0A5A4A]">
-                Next
-              </button>
-            </div>
-          </form>
-        )}
-
-        {step === 5 && (
-          <form onSubmit={handleStep5} className="mt-6 space-y-4">
-            <div>
-              <h1 className="text-2xl font-extrabold text-[#12201B]">Choose a mode</h1>
-              <p className="mt-1 text-sm text-[#5A6B64]">
-                Pick how you want Budget Buddy to guide your month.
-              </p>
-            </div>
-
-            <label className="flex min-h-12 cursor-pointer items-start gap-3 rounded-xl border border-[#E1E8E4] p-4 hover:bg-[#F5F7F4]">
-              <input
-                type="radio"
-                name="ob-mode"
-                checked={mode === 'planner'}
-                onChange={() => setMode('planner')}
-                className="mt-1 h-5 w-5 accent-[#0E7C66]"
-              />
-              <span>
-                <strong className="block text-sm font-bold text-[#12201B]">Build my plan</strong>
-                <span className="text-sm text-[#5A6B64]">
-                  Full needs-first monthly budget, emergency &amp; goal allocations, and category
-                  allowances.
-                </span>
-              </span>
-            </label>
-
-            <label className="flex min-h-12 cursor-pointer items-start gap-3 rounded-xl border border-[#E1E8E4] p-4 hover:bg-[#F5F7F4]">
-              <input
-                type="radio"
-                name="ob-mode"
-                checked={mode === 'log_only'}
-                onChange={() => setMode('log_only')}
-                className="mt-1 h-5 w-5 accent-[#0E7C66]"
-              />
-              <span>
-                <strong className="block text-sm font-bold text-[#12201B]">
-                  Just track my spending
-                </strong>
-                <span className="text-sm text-[#5A6B64]">
-                  Subtract your bills and a fixed savings rate, then track your daily spending
-                  against the rest.
-                </span>
-              </span>
-            </label>
-
-            {mode === 'log_only' && (
-              <div>
-                <label htmlFor="ob-sav-rate" className="mb-1 block text-sm font-semibold">
-                  Savings percentage (%)
-                </label>
-                <input
-                  id="ob-sav-rate"
-                  type="number"
-                  min={0}
-                  max={80}
-                  value={savingsRatePct}
-                  onChange={(e) => setSavingsRatePct(e.target.value)}
-                  className="min-h-12 w-full max-w-xs rounded-xl border border-[#C9D5CF] px-3 py-2.5 text-sm"
-                />
+                <PiggyBankIllustration className="h-24 w-32 shrink-0" />
               </div>
-            )}
 
-            <div className="flex items-center justify-between pt-2">
-              <button
-                type="button"
-                onClick={goBack}
-                className="min-h-12 rounded-xl border border-[#C9D5CF] bg-white px-5 py-3 text-sm font-bold text-[#12201B] hover:bg-[#F5F7F4]">
-                Back
-              </button>
-              <button
-                type="submit"
-                className="min-h-12 rounded-xl bg-[#0E7C66] px-6 py-3 text-sm font-bold text-white hover:bg-[#0A5A4A]">
-                Finish &amp; open Dashboard
-              </button>
-            </div>
-          </form>
-        )}
+              <TermHelp title="What's this? Emergency savings (for surprises)">
+                This is money kept aside for sudden expenses like medical bills or urgent repairs so
+                one surprise does not wipe out your month.
+              </TermHelp>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="ob-em-months" className="mb-1.5 block text-base font-semibold text-[#12201B]">
+                    Months of bills to keep safe
+                  </label>
+                  <input
+                    id="ob-em-months"
+                    type="number"
+                    min={1}
+                    max={12}
+                    value={emergencyMonths}
+                    onChange={(e) => setEmergencyMonths(e.target.value)}
+                    placeholder="For example: 3"
+                    className="min-h-[48px] w-full rounded-2xl border border-[#C3D4CB] px-4 py-3 text-base text-[#12201B]"
+                  />
+                  <span className="mt-1 block text-sm text-[#5A6B64]">
+                    For example: 3 months of your essential bills.
+                  </span>
+                </div>
+
+                <div>
+                  <label htmlFor="ob-em-saved" className="mb-1.5 block text-base font-semibold text-[#12201B]">
+                    Saved for surprises so far (₦)
+                  </label>
+                  <input
+                    id="ob-em-saved"
+                    type="text"
+                    value={emergencySaved}
+                    onChange={(e) => setEmergencySaved(e.target.value)}
+                    placeholder="For example: 50,000"
+                    className="min-h-[48px] w-full rounded-2xl border border-[#C3D4CB] px-4 py-3 text-base text-[#12201B]"
+                  />
+                </div>
+              </div>
+
+              <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-2xl border border-[#E2EAE6] bg-[#F8FBF9] px-4 py-3 text-base font-medium text-[#12201B]">
+                <input
+                  type="checkbox"
+                  checked={festiveEnabled}
+                  onChange={(e) => setFestiveEnabled(e.target.checked)}
+                  className="h-5 w-5 accent-[#0E7C66]"
+                />
+                <span>Set aside 3% monthly for December &amp; festive expenses</span>
+              </label>
+
+              <div className="space-y-3 pt-2">
+                <h2 className="text-lg font-bold text-[#12201B]">
+                  Personal savings goals (up to 3, optional)
+                </h2>
+                {goalDrafts.map((g, idx) => (
+                  <div
+                    key={idx}
+                    className="grid gap-3 rounded-2xl border border-[#E2EAE6] bg-[#F8FBF9] p-4 sm:grid-cols-4">
+                    <div>
+                      <label
+                        htmlFor={`goal-name-${idx}`}
+                        className="mb-1 block text-sm font-semibold text-[#31443D]">
+                        Goal {idx + 1} name
+                      </label>
+                      <input
+                        id={`goal-name-${idx}`}
+                        type="text"
+                        value={g.name}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setGoalDrafts((prev) =>
+                            prev.map((item, i) => (i === idx ? {...item, name: val} : item)),
+                          );
+                        }}
+                        placeholder="For example: Solar power"
+                        className="min-h-[48px] w-full rounded-2xl border border-[#C3D4CB] bg-white px-3 py-2 text-base"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor={`goal-target-${idx}`}
+                        className="mb-1 block text-sm font-semibold text-[#31443D]">
+                        Target (₦)
+                      </label>
+                      <input
+                        id={`goal-target-${idx}`}
+                        type="text"
+                        value={g.target}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setGoalDrafts((prev) =>
+                            prev.map((item, i) => (i === idx ? {...item, target: val} : item)),
+                          );
+                        }}
+                        placeholder="For example: 300,000"
+                        className="min-h-[48px] w-full rounded-2xl border border-[#C3D4CB] bg-white px-3 py-2 text-base"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor={`goal-saved-${idx}`}
+                        className="mb-1 block text-sm font-semibold text-[#31443D]">
+                        Saved so far (₦)
+                      </label>
+                      <input
+                        id={`goal-saved-${idx}`}
+                        type="text"
+                        value={g.saved}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setGoalDrafts((prev) =>
+                            prev.map((item, i) => (i === idx ? {...item, saved: val} : item)),
+                          );
+                        }}
+                        placeholder="For example: 40,000"
+                        className="min-h-[48px] w-full rounded-2xl border border-[#C3D4CB] bg-white px-3 py-2 text-base"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor={`goal-deadline-${idx}`}
+                        className="mb-1 block text-sm font-semibold text-[#31443D]">
+                        Target date
+                      </label>
+                      <input
+                        id={`goal-deadline-${idx}`}
+                        type="date"
+                        value={g.deadline}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setGoalDrafts((prev) =>
+                            prev.map((item, i) => (i === idx ? {...item, deadline: val} : item)),
+                          );
+                        }}
+                        className="min-h-[48px] w-full rounded-2xl border border-[#C3D4CB] bg-white px-3 py-2 text-base"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={goBack}
+                  className="bb-btn inline-flex min-h-[48px] items-center gap-2 rounded-2xl border border-[#C3D4CB] bg-white px-5 py-3 text-base font-bold text-[#12201B] hover:bg-[#F3FAF7]">
+                  <Icon name="arrow-left" className="h-5 w-5" />
+                  <span>Back</span>
+                </button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => saveStep4(true)}
+                    className="bb-btn min-h-[48px] rounded-2xl border border-[#C3D4CB] bg-white px-5 py-3 text-base font-bold text-[#31443D] hover:bg-[#F3FAF7]">
+                    Skip goals for now
+                  </button>
+                  <button
+                    type="submit"
+                    className="bb-btn inline-flex min-h-[48px] items-center gap-2 rounded-2xl bg-[#0E7C66] px-6 py-3 text-base font-bold text-white hover:bg-[#0A5A4A]">
+                    <span>Next</span>
+                    <Icon name="arrow-right" className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            </form>
+          )}
+
+          {step === 5 && (
+            <form onSubmit={handleStep5} className="mt-6 space-y-5">
+              <div>
+                <h1 className="text-2xl font-extrabold text-[#12201B] sm:text-3xl">
+                  Choose how to plan
+                </h1>
+                <p className="mt-1 text-base text-[#43564F]">
+                  Why we ask: Pick the style that feels easiest today. Everything stays simple and
+                  easy to follow.
+                </p>
+              </div>
+
+              <label className="flex min-h-[56px] cursor-pointer items-start gap-3.5 rounded-2xl border border-[#C9D8D1] bg-[#F8FBF9] p-5 hover:border-[#0E7C66]">
+                <input
+                  type="radio"
+                  name="ob-mode"
+                  checked={mode === 'planner'}
+                  onChange={() => setMode('planner')}
+                  className="mt-1 h-5 w-5 accent-[#0E7C66]"
+                />
+                <span>
+                  <strong className="block text-lg font-bold text-[#12201B]">Build my plan</strong>
+                  <span className="mt-1 block text-base text-[#43564F]">
+                    We cover things you must pay first, set aside savings for surprises and goals,
+                    and show clearly what you can enjoy each day.
+                  </span>
+                </span>
+              </label>
+
+              <label className="flex min-h-[56px] cursor-pointer items-start gap-3.5 rounded-2xl border border-[#C9D8D1] bg-[#F8FBF9] p-5 hover:border-[#0E7C66]">
+                <input
+                  type="radio"
+                  name="ob-mode"
+                  checked={mode === 'log_only'}
+                  onChange={() => setMode('log_only')}
+                  className="mt-1 h-5 w-5 accent-[#0E7C66]"
+                />
+                <span>
+                  <strong className="block text-lg font-bold text-[#12201B]">
+                    Just track my spending
+                  </strong>
+                  <span className="mt-1 block text-base text-[#43564F]">
+                    Keep it extra simple: take out bills and one savings percentage, then log your
+                    daily spending against the rest.
+                  </span>
+                </span>
+              </label>
+
+              {mode === 'log_only' && (
+                <div>
+                  <label htmlFor="ob-sav-rate" className="mb-1.5 block text-base font-semibold text-[#12201B]">
+                    How much to save each payday (%)
+                  </label>
+                  <input
+                    id="ob-sav-rate"
+                    type="number"
+                    min={0}
+                    max={80}
+                    value={savingsRatePct}
+                    onChange={(e) => setSavingsRatePct(e.target.value)}
+                    placeholder="For example: 10"
+                    className="min-h-[48px] w-full max-w-xs rounded-2xl border border-[#C3D4CB] px-4 py-3 text-base"
+                  />
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  type="button"
+                  onClick={goBack}
+                  className="bb-btn inline-flex min-h-[48px] items-center gap-2 rounded-2xl border border-[#C3D4CB] bg-white px-5 py-3 text-base font-bold text-[#12201B] hover:bg-[#F3FAF7]">
+                  <Icon name="arrow-left" className="h-5 w-5" />
+                  <span>Back</span>
+                </button>
+                <button
+                  type="submit"
+                  className="bb-btn inline-flex min-h-[52px] items-center gap-2 rounded-2xl bg-[#0E7C66] px-6 py-3 text-base font-bold text-white shadow-xs hover:bg-[#0A5A4A]">
+                  <span>See my Dashboard</span>
+                  <Icon name="arrow-right" className="h-5 w-5" />
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );
